@@ -352,23 +352,20 @@ public sealed class MainWindow : Window, IDisposable
     {
         this.RefreshPluginStates();
 
+        // 説明文・「使う機能」「無いとき」の列・下の注記は要望で外した（プラグインと状態だけ）。
         ImGui.TextUnformatted("必要なプラグイン");
-        using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey))
-            ImGui.TextWrapped("GBRHelper が使うほかのプラグインです。「必須」が無いと何も動きません。ほかは、その機能を使うときだけ要ります。");
         ImGui.Separator();
 
         if (this.pluginListError is not null)
             ImGui.TextColored(ImGuiColors.DalamudYellow, "導入済みのプラグインの一覧を読めません：" + this.pluginListError);
 
-        using (var table = ImRaii.Table("##requiredPlugins", 4,
+        using (var table = ImRaii.Table("##requiredPlugins", 2,
                    ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders | ImGuiTableFlags.SizingStretchProp))
         {
             if (table)
             {
-                ImGui.TableSetupColumn("プラグイン", ImGuiTableColumnFlags.WidthStretch, 1.1f);
-                ImGui.TableSetupColumn("状態", ImGuiTableColumnFlags.WidthStretch, 1.1f);
-                ImGui.TableSetupColumn("使う機能", ImGuiTableColumnFlags.WidthStretch, 1.6f);
-                ImGui.TableSetupColumn("無いとき", ImGuiTableColumnFlags.WidthStretch, 2.2f);
+                ImGui.TableSetupColumn("プラグイン", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("状態", ImGuiTableColumnFlags.WidthStretch, 1f);
                 ImGui.TableHeadersRow();
 
                 foreach (var state in this.pluginStates)
@@ -388,21 +385,8 @@ public sealed class MainWindow : Window, IDisposable
                         _ => ImGuiColors.DalamudYellow,
                     };
                     ImGui.TextColored(color, RequiredPlugins.StatusText(state));
-
-                    ImGui.TableNextColumn();
-                    ImGui.TextWrapped(state.Entry.UsedBy);
-
-                    ImGui.TableNextColumn();
-                    ImGui.TextWrapped(state.Entry.IfMissing);
                 }
             }
-        }
-
-        ImGui.Spacing();
-        using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey))
-        {
-            ImGui.TextWrapped("「導入済み・停止中」は、Dalamud のプラグインの一覧（/xlplugins）で無効になっているか、読み込みに失敗しています。");
-            ImGui.TextWrapped("ベンチャー回収の通信の失敗やナビメッシュの状態は、「ベンチャー回収」の「必要なプラグイン」タブに出ます。");
         }
     }
 
