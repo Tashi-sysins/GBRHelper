@@ -10,17 +10,11 @@
 ・ベンチャー未採取品の採取：リテイナーにベンチャー依頼させる際、未採取品だと依頼出来ないのでフラグ立てをする
 ・全素材の補充：リテイナーに全素材を持たせたい人用
 ・霊砂・クリスタル：欲しい霊砂・クリスタルを目標の数まで、原料を採って精選させる
-・Crafting Listsから末端素材抽出：Artisan の Crafting Lists の素材を GBR のリストにする
-
-必須プラグイン: GatherBuddyReborn
-機能によって必要: AutoRetainer / Lifestream / vnavmesh（ベンチャー回収）・Allagan Tools（希望所持数・リテイナーの数）・Artisan（Crafting Lists）
-画面の「必要なプラグイン」で導入状況を確かめられます。
-
-GBR Venture Relay を使っていた場合は、GBR Venture Relay を外してください（設定は自動で引き継ぎます）。</Description>
+・Crafting Listsから末端素材抽出：Artisan の Crafting Lists の素材を GBR のリストにする</Description>
 
     <Tags>gatherbuddy;gathering;retainer;venture;automation;japanese;translation</Tags>
     <Author>ヌル</Author>
-    <Version>0.3.0.2</Version>
+    <Version>0.3.0.3</Version>
     <RootNamespace>GBRHelper</RootNamespace>
     <AssemblyName>GBRHelper</AssemblyName>
     <Copyright>MIT</Copyright>

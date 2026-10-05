@@ -151,14 +151,17 @@ public sealed class Plugin : IDalamudPlugin
         Svc.PluginInterface.UiBuilder.OpenConfigUi += this.OpenWindow;
         Svc.PluginInterface.UiBuilder.OpenMainUi += this.OpenWindow;
 
+        // コマンドの説明は Dalamud のプラグイン一覧・/xlhelp に出さない。コマンドは使える。
         Svc.Commands.AddHandler(CommandName, new CommandInfo(this.OnCommand)
         {
             HelpMessage = "GBRHelper の画面を開きます。",
+            ShowInHelp = false,
         });
 
         Svc.Commands.AddHandler(CommandAlias, new CommandInfo(this.OnCommand)
         {
             HelpMessage = "GBRHelper の画面を開きます（別名）。",
+            ShowInHelp = false,
         });
 
         Svc.Framework.Update += this.OnUpdate;
