@@ -441,6 +441,108 @@ public sealed class GbrAutoGatherListAccess
         }
     }
 
+    /// <summary>
+    /// Helper が作った管理リストを、同じ場所（フォルダー）のリストの一番上へ動かす（2026-10-06 霊砂・クリスタル。
+    /// 要望「ほかのリストを無効にさせず、自動的に Auto-Gather の一番上に入れる」）。すでに一番上なら何もしない（moved＝false）。
+    ///
+    /// 【一番上にする理由】GBR は「品目の並べ方：なし」のとき、出ている刻限の品を先に、そのあと常に採れる品を並べ、
+    /// 同じ扱いの品どうしはリストの並びの順に採る（GBR 7.5.6.1 ActiveItemList.cs 389-391）。リストの並びは
+    /// フォルダーの中のリストが先、同じ場所のリストは Order の小さい順（ManualOrderSortMode・ElliLib の GetAllDescendants）。
+    /// AddList は新しいリストを一番下（Order＝最大＋1）に置く（AutoGatherListsManager.OnFileSystemChanged）。
+    /// 【動かし方】GBR の MoveList(動かすリスト, 入れる位置のリスト, false)（ManipPreset.cs 623-640）で Order を書き換えて保存する。
+    /// MoveList は採る順の一覧（ActiveItems）を作り直さない（GBR の画面で並べ替えたときも同じ）ので、続けて SetActiveItems(false) を呼ぶ。
+    /// 保存ファイルで、同じ場所のほかのリストより Order が小さいことを確かめる。
+    /// </summary>
+    public bool MoveManagedListToTop(string listName, string managementTag, out bool moved)
+    {
+        moved = false;
+        try
+        {
+            if (this.Manager() is not { } mgr)
+                return false;
+
+            if (this.FindOwnedManagedList(mgr, listName, managementTag) is not { } owned)
+            {
+                this.LastError = $"管理リスト「{listName}」が見つかりません";
+                return false;
+            }
+
+            var fileSystem = mgr.GetType().GetProperty("FileSystem", PubInst)?.GetValue(mgr);
+            var tryGet = fileSystem?.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "TryGetValue" && m.GetParameters().Length == 2);
+            if (fileSystem is null || tryGet is null)
+            {
+                this.LastError = "GBR のリストの並び（AutoGatherListsManager.FileSystem）に届きません（版の違いを確認してください）";
+                return false;
+            }
+
+            var args = new object?[] { owned, null };
+            if (tryGet.Invoke(fileSystem, args) is not true || args[1] is not { } leaf)
+            {
+                this.LastError = $"GBR のリストの並びに管理リスト「{listName}」が見つかりません";
+                return false;
+            }
+
+            var parent = leaf.GetType().GetProperty("Parent", PubInst)?.GetValue(leaf);
+            var siblings = (parent?.GetType().GetMethod("GetLeaves", PubInst, Type.EmptyTypes)?.Invoke(parent, null) as IEnumerable)?.Cast<object>().ToArray();
+            if (siblings is null)
+            {
+                this.LastError = "GBR のリストの並び（同じ場所のリスト）を読めません";
+                return false;
+            }
+
+            var mine = OrderOf(leaf);
+            var others = siblings.Where(x => !ReferenceEquals(x, leaf)).ToArray();
+            if (others.All(x => OrderOf(x) > mine))
+            {
+                this.LastError = string.Empty;
+                return true;
+            }
+
+            var top = others.MinBy(OrderOf)!;
+            var move = mgr.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "MoveList" && m.GetParameters() is { Length: 3 } p
+                && p[0].ParameterType.IsInstanceOfType(leaf) && p[2].ParameterType == typeof(bool));
+            var setActive = mgr.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "SetActiveItems" && m.GetParameters() is { Length: 1 } p
+                && p[0].ParameterType == typeof(bool));
+            if (move is null || setActive is null)
+            {
+                this.LastError = "GBR の AutoGatherListsManager.MoveList / SetActiveItems が見つかりません（版の違いを確認してください）";
+                return false;
+            }
+
+            move.Invoke(mgr, [leaf, top, false]);
+            setActive.Invoke(mgr, [false]);
+            moved = true;
+
+            var path = this.AutoGatherListsSaveFile();
+            if (path is null || !File.Exists(path))
+            {
+                this.LastError = "GBRの保存ファイルを確認できません";
+                return false;
+            }
+
+            if (ManagedListPersistence.IsFirstInFolder(File.ReadAllText(path), listName, managementTag) != true)
+            {
+                this.LastError = $"管理リスト「{listName}」を一番上へ動かしたのを保存できていません";
+                return false;
+            }
+
+            this.LastError = string.Empty;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            this.LastError = $"管理リスト「{listName}」を一番上へ動かせません: {ex.GetBaseException().Message}";
+            return false;
+        }
+
+        // GBR の AutoGatherList.Order（int）。リストの並びの番号で、小さいほど上。
+        static int OrderOf(object leaf)
+            => leaf.GetType().GetProperty("Value", PubInst)?.GetValue(leaf) is { } list
+               && list.GetType().GetProperty("Order", PubInst)?.GetValue(list) is int order
+                ? order
+                : throw new InvalidOperationException("GBR のリストの並びの番号（Order）を読めません");
+    }
+
     // ------------------------------------------------------------------
     // 内部
 

@@ -347,7 +347,7 @@ public sealed class UnvisitedFeature : IFeature
         // （指摘「採取中に設定が出来ないのは厳しい」）。
         var checkBlock = panel.Problem;
         // 「Auto-Gatherに追加」：GBR の自動採集中は押せない（橙色「採取中につき操作を受け付けられません」）。
-        // ほかの自動処理（ベンチャー回収・霊砂など）の間も押せない。
+        // ほかの自動処理（ベンチャー回収・宿屋の検証）の間も押せない（霊砂・クリスタルの登録中は押せる。2026-10-06）。
         var applyBlock = checkBlock ?? (gbrEnabled == true ? GatherProfileController.AutoGatheringText : busy);
         // 「完了分を整理」：リストを書き換えるので、GBR が止まっていて、ほかの自動処理も無いときだけ。
         var cleanBlock = checkBlock ?? (gbrEnabled == true ? GatherProfileController.BusyText : busy);

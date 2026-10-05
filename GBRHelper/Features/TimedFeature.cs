@@ -32,13 +32,18 @@ public sealed class SandChoice
 ///
 /// 【数は本プラグインが見る】GBR は霊砂・クリスタルの数を見ない（リストに載っているのは原料の収集品）。
 ///   採集の切れ目ごとに本人の鞄を数え、目標に達した原料を無効にする（TimedPlan.NeededSources）。
-///   全部無効になると、GBR は採るものが無くなって自動採集を自分で止める（GBR の AutoGather.cs 949-953）。
+///   全部無効になると、GBR は採るものが無くなって自動採集を自分で止める（GBR の AutoGather.cs 949-953。ほかの有効なリストがあれば、その品を採り続ける）。
 /// 【精選】GBR の精選（DoReduce）と「いつも全部精選する」（AlwaysReduceAllItems）を ON にする
 ///   （GBR は鞄の空きが少ないときや待ち時間に精選する。全部精選しないと、空きが少ないときに 1 種類しか精選しない）。
 ///   さらに足りない間は、採集の切れ目で本プラグインからも精選を頼み、数を早く反映する。
 /// 【GBR の設定を戻す】開始時に変えた GBR の設定（並べ替え・精選・全部精選）は、止めたときに元に戻す（利用者が途中で変えていたら戻さない）。
 /// 【1 度に 1 つ】霊砂とクリスタルは同時には登録しない（利用者の手順：替えるときは停止してから追加し直す）。
 ///   ただし、登録していない方の欲しい物・数は、登録中でも選んでおける（要望「どちらも選べるように・柔軟に」）。
+/// 【ほかのリスト】ほかの Auto-Gather リストが有効でも追加できる。追加したリストは Auto-Gather の一番上へ動かし、
+///   登録中も一番上に保つ（要望「ほかのリストを無効にさせるのは不便。自動で一番上に入れる」。
+///   前は上から順に採らせるため、ほかのリストをすべて無効にしないと押せなかった）。
+///   並べ方「なし」の GBR は、出ている刻限の品をリストの上から採り、常に採れる品はそのあとに回す（GbrAutoGatherListAccess.MoveManagedListToTop）。
+///   原料が出ていない時間は、ほかのリストの品を採る。
 /// </summary>
 public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builder,
     GatheringCompletionReader completion, GbrAutoGatherListAccess lists, GatherBuddyIpc gbr,
@@ -64,12 +69,6 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
     public bool Running => session;
     public bool BlocksRelay => session && reduction.Waiting;
-
-    /// <summary>
-    /// 霊砂・クリスタルの管理リストがある間、解放採取・全素材の補充のチェックを止めるときの文。
-    /// 上から順に採らせるため、ほかの有効なリストと同時には使わない（2026-10-05：理由が分かるように文を分けた）。
-    /// </summary>
-    public const string SessionBlockText = "霊砂・クリスタルの管理リストがあるため選択不可（「霊砂・クリスタル」の「停止して管理リストを削除」で解除）";
 
     /// <summary>追加したあとに出す案内（霊砂。指定の文）。</summary>
     public const string SessionGuide =
@@ -260,7 +259,6 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     {
         if (catalog is null && Svc.PlayerState.IsLoaded && DateTime.UtcNow >= nextLoad) Try(Load);
         else if (catalog is { } cat && DateTime.UtcNow >= nextRowsRefresh) Try(() => RefreshRows(cat));
-        RefreshOtherLists();
 
         if (FoldingHeader.Draw("霊砂", ref sandOpen, SandHeaderColor))
             DrawSands();
@@ -394,16 +392,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         "GBRの次の設定を変更します「詳細→精選を使う＋いつも全部精選する」「詳細→品目の並べ方→なし」";
 
     // ---- 「Auto-Gatherに追加」を押せない理由 ----
-    private bool otherListsEnabled;
-    private DateTime nextOtherListsCheck;
-
-    /// <summary>ほかの Auto-Gather リストが有効か（押せない理由に出す）。画面を開いている間だけ、1 秒ごとに読み直す。</summary>
-    private void RefreshOtherLists()
-    {
-        if (session || DateTime.UtcNow < nextOtherListsCheck) return;
-        nextOtherListsCheck = DateTime.UtcNow.AddSeconds(1);
-        otherListsEnabled = lists.ListAll()?.Any(x => x.Enabled) ?? false;
-    }
+    // ほかの Auto-Gather リストが有効でも押せる（追加したリストを一番上へ動かす）。
 
     /// <summary>
     /// 「Auto-Gatherに追加」を押せない理由（要望：説明の一番上に黄色で出す）。押せるなら null。
@@ -412,7 +401,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     private string? AddBlock(bool crystal)
     {
         // GBR の自動採集中は押せない。理由は指定の文を橙色で出す。
-        // 追加すると GBR の設定（品目の並べ方→なし・精選・いつも全部精選する）を変え、ほかのリストを無効にした状態で上から順に採らせるため、
+        // 追加すると GBR の設定（品目の並べ方→なし・精選・いつも全部精選する）を変え、一番上に入れたリストの上から順に採らせるため、
         // 自動採集の途中で行うと、動いている採集の並び順や精選が途中で変わる（危ない）。
         // 手で採っている最中（GBR は止まっている）は押せる（要望「自動採取中は出来なくていい、単純に採取中は設定出来ても問題ない」）。
         if (IsAutoGathering())
@@ -433,8 +422,6 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             return error;
         if (Choice(crystal ? config.CrystalChoices : config.SandChoices).Selected.Count == 0)
             return crystal ? "欲しい属性にチェックを入れてください" : "欲しい霊砂にチェックを入れてください";
-        if (otherListsEnabled)
-            return "ほかの Auto-Gather リストが有効です。上から順に採らせるため、GBR ですべて無効にしてから押してください";
         return null;
     }
 
@@ -573,8 +560,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         Load(); access.CheckContract();
         // GBR が止まっていれば、手で採っている最中などでも追加してよい。GBR の設定とリストを書くだけで、GBR は動いていないため。
         if (!access.CanWriteListsWhileStopped) throw new InvalidOperationException("キャラクターを読めません。少し待ってから押してください");
-        var snapshot = lists.ListAll() ?? throw new InvalidOperationException(lists.LastError);
-        if (snapshot.Any(x => x.Enabled)) throw new InvalidOperationException("上から順に採らせるため、ほかの Auto-Gather リストをすべて無効にしてから追加してください");
+        _ = lists.ListAll() ?? throw new InvalidOperationException(lists.LastError);
         eligible = catalog!.Entries.Where(CanGather).DistinctBy(e => e.ItemId).ToArray();
     }
 
@@ -599,7 +585,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         if (entries.Count == 0) throw new InvalidOperationException("選んだ霊砂はすべて目標数を持っています");
 
         Begin(false, SandListName, entries, sandGoals, sandRecipes, counts,
-            $"Auto-Gather にリスト「{SandListName}」を追加しました（原料 {entries.Count} 品）。");
+            $"Auto-Gather の一番上にリスト「{SandListName}」を追加しました（原料 {entries.Count} 品）。");
     }
 
     private void StartCrystal()
@@ -644,7 +630,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             return $"{byId[id].Name}（{element}・{(slots.Length == 0 ? "取れる枠なし" : slots)}）";
         }));
         Begin(true, CrystalListName, entries, goalsShort, crystalRecipesForSession, counts,
-            $"Auto-Gather にリスト「{CrystalListName}」を追加しました（原料 {entries.Count} 品）。\n並び：{layout}");
+            $"Auto-Gather の一番上にリスト「{CrystalListName}」を追加しました（原料 {entries.Count} 品）。\n並び：{layout}");
     }
 
     /// <summary>登録を始める（両方共通）。GBR の設定を変える前に、戻すための記録を保存する。</summary>
@@ -695,6 +681,9 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         var result = lists.WriteManagedList(listName, config.TimedRecoveryTag, entries, true, false);
         if (!result.Ok) throw new InvalidOperationException(result.Error);
         written = entries;
+        // GBR は新しいリストを一番下に置くので、一番上へ動かす（ほかの有効なリストより先に原料を採らせる）。
+        if (!lists.MoveManagedListToTop(listName, config.TimedRecoveryTag, out _)) throw new InvalidOperationException(lists.LastError);
+        topMoveFailed = false;
     }
 
     /// <summary>画面に出す所持数（霊砂・クリスタル・クラスター）を、1 秒ごとに読み直す（鞄はゲームの更新の流れでしか読めないので Tick で読む）。</summary>
@@ -798,7 +787,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
                 throw new InvalidOperationException("管理リストの品・数が変更されたため停止します");
             foreach (var setting in config.TimedWrittenSettings)
                 if (access.ReadSetting(setting.Key) != setting.Value) throw new InvalidOperationException("GBR の設定が変更されたため停止します");
-            var others = snapshot.Any(x => x.Enabled && !x.Description.Contains(config.TimedRecoveryTag, StringComparison.Ordinal));
+            KeepOnTop();
 
             // こちらが無効にしたあと、利用者が GBR で有効に戻した原料は、もう無効にしない（指定「追加で欲しい場合は手動で有効化」）。
             foreach (var id in disabledByUs.Where(id => !own.DisabledItems.Contains(id)).ToArray())
@@ -834,9 +823,9 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             if (turnedOn.Count > 0)
                 status = $"{KindName}が目標数を下回ったので、原料を有効に戻しました：{string.Join("・", turnedOn)}";
             if (goals.All(g => held[g.ItemId] >= g.Target) && turnedOff.Count > 0)
-                status += $"\n選んだ{KindName}がすべて目標数に達しました（GBR は採るものが無くなると自動採集を止めます）。";
-            if (others)
-                status = "ほかの有効な Auto-Gather リストがあります（その品も一緒に採ります。上から順に原料を採らせたいときは無効にしてください）";
+                status += snapshot.Any(x => x.Enabled && !ReferenceEquals(x, own))
+                    ? $"\n選んだ{KindName}がすべて目標数に達しました（ほかの有効なリストの品は続けて採ります）。"
+                    : $"\n選んだ{KindName}がすべて目標数に達しました（GBR は採るものが無くなると自動採集を止めます）。";
 
             // 精選：足りない物があり、精選できる原料を持っていて、GBR が次に採る品が未知・伝説でないとき（採集を先にする）。
             // 鞄に精選の邪魔になる物があるときは、見張りは続けて精選だけ飛ばす（リストは残す）。
@@ -867,6 +856,27 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             status = stopRequested ? stopReason + " 復元待ち：" + ex.GetBaseException().Message : stopReason;
             stopRequested = true;
         }
+    }
+
+    /// <summary>一番上へ戻すのに失敗した（この登録の間は試し直さない。保存し直しを繰り返さないため）。</summary>
+    private bool topMoveFailed;
+
+    /// <summary>
+    /// 登録中、管理リストを Auto-Gather の一番上に保つ（GBR の画面で動かした・ほかのリストを上へ動かしたなど）。
+    /// 採集の切れ目でだけ呼ぶ（品の有効・無効を切り替えるのと同じ。GBR は切れ目ごとに採る順を決め直す）。
+    /// 動かせなくても採集は続ける（並びがずれるだけで、原料は採れる）。
+    /// </summary>
+    private void KeepOnTop()
+    {
+        if (topMoveFailed) return;
+        if (!lists.MoveManagedListToTop(listName, config.TimedRecoveryTag, out var moved))
+        {
+            topMoveFailed = true;
+            status = $"管理リストを Auto-Gather の一番上へ戻せません：{lists.LastError}";
+            return;
+        }
+        if (moved)
+            status = $"管理リスト「{listName}」を Auto-Gather の一番上へ戻しました";
     }
 
     /// <summary>原料の名前（状態の文に出す）。</summary>

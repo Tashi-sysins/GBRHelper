@@ -39,4 +39,31 @@ public static class ManagedListPersistence
             return null;
         return f.GetBoolean() == enabled;
     }
+
+    /// <summary>
+    /// 管理リストが、同じ場所（FolderPath）のほかのどのリストよりも上（Order が小さい）に保存されているか。リストが 1 つに決まらなければ null。
+    /// GBR は同じ場所のリストを Order の小さい順（同じなら名前順）に並べる（GBR 7.5.6.1 の ManualOrderSortMode.GetChildren）。
+    /// 同じ数のときは名前で決まるので、上とは数えない（GBR の MoveList で動かすと必ず小さくなる）。
+    /// </summary>
+    public static bool? IsFirstInFolder(string json, string name, string tag)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var rows = doc.RootElement.EnumerateArray().ToArray();
+        var owned = Enumerable.Range(0, rows.Length).Where(i =>
+            rows[i].GetProperty("Name").GetString() == name &&
+            (rows[i].GetProperty("Description").GetString() ?? "").Contains(tag, StringComparison.Ordinal)).ToArray();
+        if (owned.Length != 1)
+            return null;
+        var me = rows[owned[0]];
+        var folder = FolderPath(me);
+        var order = Order(me);
+        return Enumerable.Range(0, rows.Length)
+            .Where(i => i != owned[0] && FolderPath(rows[i]) == folder)
+            .All(i => Order(rows[i]) > order);
+
+        static string FolderPath(JsonElement row)
+            => row.TryGetProperty("FolderPath", out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() ?? "" : "";
+        static int Order(JsonElement row)
+            => row.TryGetProperty("Order", out var o) && o.ValueKind == JsonValueKind.Number ? o.GetInt32() : 0;
+    }
 }

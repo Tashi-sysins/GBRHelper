@@ -102,12 +102,14 @@ public sealed class Plugin : IDalamudPlugin
         // ほかの自動処理で、解放採取・全素材の補充のリストの登録・作り直しを止める理由（止めなくてよければ null）。
         // 2026-10-05：解放採取が霊砂の管理リストで止まっているのに「ベンチャー回収・宿屋の検証が動いている」と出ていたので、
         // 理由ごとに文を分けた。ベンチャーの見張り（Watching）だけなら止めない。
+        // 霊砂・クリスタルの管理リストがあっても止めない（2026-10-06。霊砂のリストは Auto-Gather の一番上に保つので、
+        // ほかのリストがあっても原料を先に採る。前は「上から順に採らせる」ため、霊砂の登録中は止めていた）。
+        // リストの作り直しは GBR が止まっているときに始まる（GatherProfileController.Apply・RefreshWhenStopped）。動いている GBR を止めるのは、
+        // キャラクターが変わったとき（霊砂の登録はそのとき終わっている。TimedFeature.Tick）と、別のキャラクターのリストを消すとき（霊砂が無くても同じ）だけ。
         string? BusyReason()
-        {
-            if (this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching))
-                return GatherProfileController.BusyText;
-            return timed.Running ? TimedFeature.SessionBlockText : null;
-        }
+            => this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching)
+                ? GatherProfileController.BusyText
+                : null;
 
         this.gatherProfiles = new GatherProfileController(this.config, catalogBuilder, completionReader, listAccess,
             this.gatherBuddy, timedAccess, () => BusyReason() is not null);
