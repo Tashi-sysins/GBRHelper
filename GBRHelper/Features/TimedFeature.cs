@@ -571,13 +571,15 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
         var choice = Choice(config.SandChoices);
         // 画面の並び（左の列の上から）の順に、選んだ霊砂を並べる。
-        var chosen = rows.Where(r => choice.Selected.Contains(r.Id)).ToArray();
-        if (chosen.Length == 0) throw new InvalidOperationException("欲しい霊砂にチェックを入れてください");
-        if (chosen.FirstOrDefault(r => !r.Gatherable) is { } blocked)
-            throw new InvalidOperationException($"「{blocked.Name}」は採れる原料がありません。チェックを外してください");
+        var picked = rows.Where(r => choice.Selected.Contains(r.Id)).ToArray();
+        if (picked.Length == 0) throw new InvalidOperationException("欲しい霊砂にチェックを入れてください");
+        // いま採れる原料が無い霊砂（レベル・伝承録）は飛ばして、採れる物だけ登録する。チェックは残すので、採れるようになれば次に押したときに入る
+        // （2026-10-06。前は「チェックを外してください」と止めていた。要望「人間にアナログ的な指示を強いるな」）。
+        var chosen = picked.Where(r => r.Gatherable).ToArray();
+        if (chosen.Length == 0) throw new InvalidOperationException("選んだ霊砂は、どれも今は採れる原料がありません（名前に乗せると理由が出ます）");
 
         var sandGoals = chosen.Select(r => new TimedPlan.Goal(r.Id, (uint)SandQuantity(choice, r.Id))).ToArray();
-        var sandRecipes = recipes.Where(r => choice.Selected.Contains(r.OutputId) && eligible.Any(e => e.ItemId == r.SourceId)).ToArray();
+        var sandRecipes = recipes.Where(r => chosen.Any(c => c.Id == r.OutputId) && eligible.Any(e => e.ItemId == r.SourceId)).ToArray();
         var counts = sandGoals.ToDictionary(g => g.ItemId, g => new[] { g.ItemId });
         allowedReduction = sandRecipes.Select(r => r.SourceId).ToHashSet();
         var held = ReadHeld(sandGoals, counts);
@@ -585,7 +587,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         if (entries.Count == 0) throw new InvalidOperationException("選んだ霊砂はすべて目標数を持っています");
 
         Begin(false, SandListName, entries, sandGoals, sandRecipes, counts,
-            $"Auto-Gather の一番上にリスト「{SandListName}」を追加しました（原料 {entries.Count} 品）。");
+            $"Auto-Gather の一番上にリスト「{SandListName}」を追加しました（原料 {entries.Count} 品）。" + SkippedNote(picked.Where(r => !r.Gatherable).Select(r => r.Name)));
     }
 
     private void StartCrystal()
@@ -594,10 +596,11 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         if (crystalError.Length != 0) throw new InvalidOperationException(crystalError);
 
         var choice = Choice(config.CrystalChoices);
-        var chosen = elements.Where(e => choice.Selected.Contains(e.Key)).ToArray();
-        if (chosen.Length == 0) throw new InvalidOperationException("欲しい属性にチェックを入れてください");
-        if (chosen.FirstOrDefault(e => !e.Gatherable) is { } blocked)
-            throw new InvalidOperationException($"「{blocked.Name}」は採れる原料がありません。チェックを外してください");
+        var picked = elements.Where(e => choice.Selected.Contains(e.Key)).ToArray();
+        if (picked.Length == 0) throw new InvalidOperationException("欲しい属性にチェックを入れてください");
+        // いま採れる原料が無い属性は飛ばして、採れる物だけ登録する（霊砂と同じ。2026-10-06）。
+        var chosen = picked.Where(e => e.Gatherable).ToArray();
+        if (chosen.Length == 0) throw new InvalidOperationException("選んだ属性は、どれも今は採れる原料がありません（名前に乗せると理由が出ます）");
 
         // クリスタルとクラスターが両方とも欲しい数に達したら達成＝少ない方で判定する。
         var allGoals = chosen.Select(e => new TimedPlan.Goal(e.Key, (uint)CrystalQuantity(choice, e.Key))).ToArray();
@@ -619,8 +622,9 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         var goalsShort = allGoals.Where(g => short_.Any(e => e.Key == g.ItemId)).ToArray();
 
         allowedReduction = plan.Order.ToHashSet();
-        ReductionInventory.RequireNormalFree(ReadSources(), plan.Order, id => byId[id].Name);
-        var entries = plan.Order.Select(id => (id, TimedPlan.SourceQuantity)).ToList();
+        // 原料の目標数は 200＋鞄の通常品の数（GBR は通常品も数えるため。TimedPlan.SourceTarget）。
+        var normal = ReductionInventory.NormalCounts(ReadSources(), plan.Order);
+        var entries = plan.Order.Select(id => (id, TimedPlan.SourceTarget(normal[id]))).ToList();
 
         // 並びと、各原料が取る枠（ET）を状態の文に出す（何をどの時間に採るかが分かるように）。
         var layout = string.Join(" → ", plan.Order.Select(id =>
@@ -630,8 +634,13 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             return $"{byId[id].Name}（{element}・{(slots.Length == 0 ? "取れる枠なし" : slots)}）";
         }));
         Begin(true, CrystalListName, entries, goalsShort, crystalRecipesForSession, counts,
-            $"Auto-Gather の一番上にリスト「{CrystalListName}」を追加しました（原料 {entries.Count} 品）。\n並び：{layout}");
+            $"Auto-Gather の一番上にリスト「{CrystalListName}」を追加しました（原料 {entries.Count} 品）。\n並び：{layout}"
+            + SkippedNote(picked.Where(e => !e.Gatherable).Select(e => e.Name)));
     }
+
+    /// <summary>採れる原料が無いので登録しなかった物の一言（無ければ空）。</summary>
+    private static string SkippedNote(IEnumerable<string> names)
+        => names.ToArray() is { Length: > 0 } n ? $"\n「{string.Join("」「", n)}」は今は採れる原料が無いので入れていません。" : "";
 
     /// <summary>登録を始める（両方共通）。GBR の設定を変える前に、戻すための記録を保存する。</summary>
     private void Begin(bool crystal, string name, List<(uint ItemId, uint Quantity)> entries, IReadOnlyList<TimedPlan.Goal> sessionGoals,
@@ -827,15 +836,14 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
                     ? $"\n選んだ{KindName}がすべて目標数に達しました（ほかの有効なリストの品は続けて採ります）。"
                     : $"\n選んだ{KindName}がすべて目標数に達しました（GBR は採るものが無くなると自動採集を止めます）。";
 
-            // 精選：足りない物があり、精選できる原料を持っていて、GBR が次に採る品が未知・伝説でないとき（採集を先にする）。
-            // 鞄に精選の邪魔になる物があるときは、見張りは続けて精選だけ飛ばす（リストは残す）。
+            // 精選：足りない物があり、精選できる原料（収集品）を持っていて、GBR が次に採る品が未知・伝説でないとき（採集を先にする）。
+            // 鞄を読めないときは、見張りは続けて精選だけ飛ばす（リストは残す）。通常品や、選んでいない精選できる品があっても止めない（2026-10-06）。
             if (goals.Any(g => held[g.ItemId] < g.Target))
             {
                 Dictionary<uint, ReductionStock> sources;
                 try
                 {
                     sources = ReadSources();
-                    ReductionInventory.RequireNormalFree(sources, sessionRecipes.Select(r => r.SourceId), SourceName);
                 }
                 catch (InvalidOperationException ex)
                 {

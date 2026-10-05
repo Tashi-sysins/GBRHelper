@@ -18,8 +18,18 @@ namespace GBRHelper.Features;
 /// </summary>
 public static class TimedPlan
 {
-    /// <summary>リストに載せる原料 1 品あたりの数。</summary>
+    /// <summary>リストに載せる原料 1 品あたりの数。収集品として採る数で、持っている通常品の数はこれに足す（SourceTarget）。</summary>
     public const uint SourceQuantity = 200;
+
+    /// <summary>
+    /// GBR のリストに書く原料の目標数＝SourceQuantity＋鞄の通常品の数。
+    /// GBR は目標数を「本人の鞄の通常品＋収集品」と比べる（GBR 7.5.6.1 GatherableExtensions.GetInventoryCount・ActiveItemList.NeedsGathering）ので、
+    /// 通常品を持っていると、その分だけ収集品を採らなくなる（200 個以上持っていると採りに行かない）。
+    /// 前は通常品を持っていたら開始を止めていた（H1）が、利用者に鞄を片付けさせないため、目標数に足す。
+    /// </summary>
+    public static uint SourceTarget(int normalHeld)
+        => normalHeld < 0 ? throw new InvalidOperationException("原料の通常品の所持数を確認できません")
+            : (uint)Math.Min((long)SourceQuantity + normalHeld, uint.MaxValue);
 
     public sealed record Goal(uint ItemId, uint Target);
 
@@ -27,15 +37,14 @@ public static class TimedPlan
     /// <param name="sands">欲しい霊砂と目標数。この順にリストへ並べる。</param>
     /// <param name="recipes">霊砂と原料の対応（採れる原料だけ）。</param>
     /// <param name="held">霊砂の所持数（本人の鞄）。</param>
-    /// <param name="sourcesHeld">原料の所持数（通常品と収集品を分けて）。通常品を持っていたら登録しない。</param>
+    /// <param name="sourcesHeld">原料の所持数（通常品と収集品を分けて）。通常品の数は原料の目標数に足す（SourceTarget）。</param>
     public static List<(uint ItemId, uint Quantity)> Build(IReadOnlyList<GatherableCatalog.Entry> catalog,
         IReadOnlyList<Goal> sands, IReadOnlyList<AethersandRecipe> recipes,
         IReadOnlyDictionary<uint, int> held, IReadOnlyDictionary<uint, ReductionStock> sourcesHeld)
     {
         if (sands.Any(g => g.Target is < 1 or > 9999 || !held.TryGetValue(g.ItemId, out var n) || n < 0))
             throw new InvalidOperationException("目標数または現在の所持数を確認できません");
-        ReductionInventory.RequireNormalFree(sourcesHeld, recipes.Select(r => r.SourceId),
-            id => catalog.First(e => e.ItemId == id).Name);
+        var normal = ReductionInventory.NormalCounts(sourcesHeld, recipes.Select(r => r.SourceId));
 
         var rows = new List<(uint ItemId, uint Quantity)>();
         var added = new HashSet<uint>();
@@ -49,7 +58,7 @@ public static class TimedPlan
 
             foreach (var source in sources.OrderBy(id => catalog.First(e => e.ItemId == id).Level).ThenBy(id => id))
                 if (added.Add(source))
-                    rows.Add((source, SourceQuantity));
+                    rows.Add((source, SourceTarget(normal[source])));
         }
 
         return rows;

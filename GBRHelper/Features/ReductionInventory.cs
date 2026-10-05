@@ -25,15 +25,20 @@ public static class ReductionInventory
         return counts;
     }
 
-    public static void RequireNormalFree(IReadOnlyDictionary<uint, ReductionStock> counts, IEnumerable<uint> sources, Func<uint, string> name)
+    /// <summary>
+    /// 原料ごとの通常品の数（GBR のリストの目標数に足す。TimedPlan.SourceTarget）。読めない原料があれば止める。
+    /// 2026-10-06：前は通常品を持っていたら「通常品を鞄から移してから開始してください」と止めていた（要望で、止めずに目標数へ足す形にした）。
+    /// </summary>
+    public static Dictionary<uint, int> NormalCounts(IReadOnlyDictionary<uint, ReductionStock> counts, IEnumerable<uint> sources)
     {
+        var result = new Dictionary<uint, int>();
         foreach (var id in sources.Distinct())
         {
             if (!counts.TryGetValue(id, out var count) || count.Normal < 0 || count.Collectable < 0)
                 throw new InvalidOperationException("原料の通常品・収集品の所持数を確認できません");
-            if (count.Normal > 0)
-                throw new InvalidOperationException($"「{name(id)}」の通常品を{count.Normal}個持っています。通常品を鞄から移してから開始してください（収集品は残せます）");
+            result[id] = count.Normal;
         }
+        return result;
     }
 
     public static bool CanReduce(IReadOnlyDictionary<uint, ReductionStock> counts)

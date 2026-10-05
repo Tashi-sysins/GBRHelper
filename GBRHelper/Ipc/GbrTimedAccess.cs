@@ -119,7 +119,14 @@ public sealed class GbrTimedAccess(GbrConfigAccess shared)
         return true;
     }
 
-    /// <summary>GBRの精選は鞄内全体が対象。選ばれていない精選可能品があれば先に止める。</summary>
+    /// <summary>
+    /// 本人の鞄（4 ページ）の原料（allowed）を、通常品と収集品に分けて数える。
+    /// 【要望で外したこと】前は、選んでいない精選できる収集品（利用者が自分のリストで採った品など）が鞄にあると
+    /// 「対象外の精選可能品を鞄から移してから開始してください」と止めていた（GBR の精選は鞄の中の精選できる収集品を全部精選するため）。
+    /// しかし霊砂の登録中は GBR の「精選を使う」を ON にするので、GBR 自身が待ち時間・鞄の空きが 20 未満・終了時に全部精選する
+    /// （GBR 7.5.6.1 AutoGather.cs 895-903・986-1023・2288-2325。ReduceItems(true) は精選できる収集品が無くなるまで繰り返す）。
+    /// 開始時に止めても守りにならず、手間だけが増えるので止めない（「いつも全部精選する」と画面で知らせている）。
+    /// </summary>
     public static unsafe Dictionary<uint, ReductionStock> CheckReductionInventory(IReadOnlySet<uint> allowed)
     {
         if (!Svc.Framework.IsInFrameworkUpdateThread || !Svc.PlayerState.IsLoaded) throw new InvalidOperationException("鞄を読めません");
@@ -137,9 +144,6 @@ public sealed class GbrTimedAccess(GbrConfigAccess shared)
                 var id = item->GetBaseItemId();
                 var collectable = item->Flags.HasFlag(InventoryItem.ItemFlags.Collectable);
                 slots.Add(new(id, checked((int)item->Quantity), collectable));
-                var data = Svc.Data.GetExcelSheet<Item>().GetRow(id);
-                if (collectable && data.AetherialReduce != 0 && !allowed.Contains(id))
-                    throw new InvalidOperationException($"対象外の精選可能品「{data.Name}」を鞄から移してから開始してください");
             }
         }
         return ReductionInventory.Count(slots, allowed);
