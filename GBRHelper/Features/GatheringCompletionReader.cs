@@ -50,8 +50,15 @@ public sealed class GatheringCompletionReader
     /// 伝承録が 2 冊要る品（2026-10-05 時点で 2 品）は、GBR が未読側の採集点を選ぶと止まるので「すべて」を求める。
     /// </summary>
     public bool? FolkloreOk(GatherableCatalog.Entry entry)
+        => entry.FolkloreBooks is not { Count: > 0 } books ? true : this.BooksRead(books);
+
+    /// <summary>
+    /// 伝承録の本（品番）を全部読んでいれば true、読んでいない本があれば false、確かめられなければ null。
+    /// 採集品（FolkloreOk）と、Crafting Lists の魚（本を FishParameter から引く。2026-10-06）で同じ判定を使う。
+    /// </summary>
+    public bool? BooksRead(IReadOnlyCollection<uint> books)
     {
-        if (entry.FolkloreBooks is not { Count: > 0 } books)
+        if (books.Count == 0)
             return true;
 
         var contentId = this.effects.GetLocalContentId();
@@ -143,6 +150,13 @@ public sealed class GatheringCompletionReader
         if (this.folkloreByContentId.TryGetValue(contentId, out var folklore))
             folklore.Clear();
     }
+
+    /// <summary>
+    /// 伝承録の覚えだけを捨てる（採取履歴の覚えは残す）。あとで伝承録を読んだのを、次に確かめたときに反映するため
+    /// （Crafting Lists の「Auto-Gatherに追加する」を押すたびに呼ぶ。2026-10-06）。
+    /// </summary>
+    public void InvalidateFolklore()
+        => this.folkloreByContentId.Clear();
 
     /// <summary>全キャラのキャッシュを捨てる（GBR 再ロード時など）。</summary>
     public void InvalidateAll()

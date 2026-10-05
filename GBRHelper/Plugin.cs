@@ -127,7 +127,9 @@ public sealed class Plugin : IDalamudPlugin
         this.features.Add(stock);
 
         // Crafting Listsから末端素材抽出（GBR の「Artisan から読み込む」と同じ中身を GBRHelper の画面から）。
-        this.artisanFeature = new ArtisanFeature(new ArtisanListAccess(), listAccess, this.gatherBuddy, BusyReason, config);
+        // 伝承録を読んでいないと採れない素材は外す（2026-10-06。解放採取・補充・霊砂と同じ品の一覧と判定を使う）。
+        this.artisanFeature = new ArtisanFeature(new ArtisanListAccess(), listAccess, this.gatherBuddy, BusyReason, config,
+            new ItemFolklore(catalogBuilder, completionReader));
         this.features.Add(this.artisanFeature);
 
         // 機能①：GBR の日本語表示（常に ON。GBR のメイン画面の英語を日本語に差し替える）。

@@ -18,7 +18,7 @@ namespace GBRHelper.Features;
 /// </summary>
 public sealed class UnvisitedFeature : IFeature
 {
-    public const string FeatureName = "ベンチャー依頼品の解放採取";
+    public const string FeatureName = "ベンチャー未採取品の採取";
 
     /// <summary>この機能が作った GBR のリストの印（Description に入れる。名前の接頭辞だけで持ち主を決めない）。</summary>
     public const string ManagementTag = "[GBRHelper:VentureUnlock]";

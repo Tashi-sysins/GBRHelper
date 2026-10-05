@@ -24,7 +24,8 @@ namespace GBRHelper.Features;
 ///   ・書き込みはゲームの更新の流れで行い、保存ファイルで確かめる（GBR のボタンは別のスレッドで書く）。
 ///   ・GBR の自動採集中は押せない（橙色「採取中につき操作を受け付けられません」。ほかの「Auto-Gatherに追加」と同じ）。
 /// </summary>
-public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListAccess lists, GatherBuddyIpc gbr, Func<string?> busyReason, Configuration config) : IFeature
+public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListAccess lists, GatherBuddyIpc gbr, Func<string?> busyReason, Configuration config,
+    ItemFolklore folklore) : IFeature
 {
     public const string FeatureName = "Crafting Listsから末端素材抽出";
 
@@ -54,10 +55,23 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
     private string result = "";
     private List<string> skippedNames = new();
 
+    /// <summary>伝承録を読んでいないので入れなかった素材の名前（2026-10-06）。</summary>
+    private List<string> folkloreNames = new();
+
+    /// <summary>伝承録を読んだか確かめられないので入れなかった素材の名前。</summary>
+    private List<string> folkloreUnknownNames = new();
+
     public void ResetCharacter()
     {
         selected = requested = null; names = null; nextNames = default;
-        result = namesError = ""; skippedNames.Clear();
+        result = namesError = ""; ClearSkipped();
+    }
+
+    private void ClearSkipped()
+    {
+        this.skippedNames.Clear();
+        this.folkloreNames.Clear();
+        this.folkloreUnknownNames.Clear();
     }
 
     public void Tick()
@@ -117,7 +131,7 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
                     var same = items.Count(p => p.Value == name) > 1;
                     if (ImGui.Selectable($"{name}{(same ? $"（{listId}）" : "")}##artisan{listId}", this.selected == listId))
                     {
-                        if (this.selected != listId) { this.result = ""; this.skippedNames.Clear(); }
+                        if (this.selected != listId) { this.result = ""; this.ClearSkipped(); }
                         this.selected = listId;
                     }
                 }
@@ -138,6 +152,7 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             UnvisitedFeature.ButtonTooltip(block,
                 "選んだ Crafting List を作るのに要る素材のうち、GBR で採れる品を GBR の Auto-Gather に追加します。\n"
+                + "伝承録を読んでいないと採れない品は入れません（GBR が採集点の前で待ち続けるため）。\n"
                 + $"リストの名前は「{ListNamePrefix}（Crafting List の名前）」。同じ Crafting List で押し直すと、そのリストを作り直します。");
 
         // GBR 自身の取り込みの場所の案内（指定の文）。
@@ -153,12 +168,27 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip(string.Join("\n", this.skippedNames));
         }
+
+        // 伝承録を読んでいない品（確認：読んでいないと採れないので、プリセットから外す）。
+        if (this.folkloreNames.Count > 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudYellow, $"伝承録を読んでいない素材 {this.folkloreNames.Count} 品は入れていません（伝承録を読んでから押し直すと入ります）");
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(string.Join("\n", this.folkloreNames));
+        }
+
+        if (this.folkloreUnknownNames.Count > 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, $"伝承録を読んだか確かめられない素材 {this.folkloreUnknownNames.Count} 品は入れていません");
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(string.Join("\n", this.folkloreUnknownNames));
+        }
     }
 
     /// <summary>そのリストの素材を GBR に書く（ゲームの更新の流れで。押した直前の状態をもう一度確かめる）。</summary>
     private void Run(int listId)
     {
-        this.skippedNames.Clear();
+        this.ClearSkipped();
         if (Block() is { } block) { this.result = "追加しませんでした：" + block; return; }
         if (this.names?.GetValueOrDefault(listId) is not { } name) { this.result = "追加しませんでした：Crafting List が見つかりません"; return; }
 
@@ -172,10 +202,21 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
             return;
         }
 
+        // 伝承録を読んでいないと採れない品を外す（2026-10-06。GBR は伝承録を見ずに採集点の前で待ち続けるため）。
+        if (!folklore.Prepare()) { this.result = "追加しませんでした：" + folklore.LastError; return; }
+        var (entries, notRead, unknown) = ItemFolklore.Filter(resolved.Entries, folklore.Ok);
+        this.folkloreNames = notRead.Select(ItemName).ToList();
+        this.folkloreUnknownNames = unknown.Select(ItemName).ToList();
+        if (entries.Count == 0)
+        {
+            this.result = $"「{name}」の素材は、伝承録を読んでいない（または確かめられない）品だけでした。追加しませんでした。";
+            return;
+        }
+
         var listName = ListNamePrefix + name;
-        var write = WriteImport(config, listId, listName, previous => ArtisanManagedWriter.Write(lists, listName, Tag(listId), resolved.Entries, previous));
+        var write = WriteImport(config, listId, listName, previous => ArtisanManagedWriter.Write(lists, listName, Tag(listId), entries, previous));
         this.result = write.Ok
-            ? $"GBR の Auto-Gather に「{listName}」を追加しました（{resolved.Entries.Count} 品）。"
+            ? $"GBR の Auto-Gather に「{listName}」を追加しました（{entries.Count} 品）。"
             : "追加しませんでした：" + write.Error;
         Svc.Log.Information($"[GBRHelper] Crafting Lists から末端素材抽出：{this.result}");
     }

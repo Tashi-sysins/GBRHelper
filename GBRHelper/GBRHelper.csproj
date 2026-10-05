@@ -7,7 +7,7 @@
 
 ・GBR の日本語表示：GBR を日本語化
 ・ベンチャー回収：自動採取中にベンチャー回収可能になったら、指定した宿屋へ一時的に戻る
-・ベンチャー依頼品の解放採取：リテイナーにベンチャー依頼させる際、未採取品だと依頼出来ないのでフラグ立てをする
+・ベンチャー未採取品の採取：リテイナーにベンチャー依頼させる際、未採取品だと依頼出来ないのでフラグ立てをする
 ・全素材の補充：リテイナーに全素材を持たせたい人用
 ・霊砂・クリスタル：欲しい霊砂・クリスタルを目標の数まで、原料を採って精選させる
 ・Crafting Listsから末端素材抽出：Artisan の Crafting Lists の素材を GBR のリストにする
@@ -20,7 +20,7 @@ GBR Venture Relay を使っていた場合は、GBR Venture Relay を外して�
 
     <Tags>gatherbuddy;gathering;retainer;venture;automation;japanese;translation</Tags>
     <Author>ヌル</Author>
-    <Version>0.3.0.1</Version>
+    <Version>0.3.0.2</Version>
     <RootNamespace>GBRHelper</RootNamespace>
     <AssemblyName>GBRHelper</AssemblyName>
     <Copyright>MIT</Copyright>

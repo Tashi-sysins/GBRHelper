@@ -33,15 +33,9 @@ public sealed class MainWindow : Window, IDisposable
     private readonly FeatureCatalog features;
 
     /// <summary>
-    /// 検証タブを出しているか。既定は隠す。
-    /// 記録タブを 5 回続けてクリックすると出る（もう一度 5 回で隠れる）。保存はしない（読み直すと隠れる）。
+    /// 左上の「機能」の文字のクリックを数える（5 回で「デバッグ」を出す・隠す）。
+    /// 宿屋の検証（以前は記録タブを 5 回で出た「検証」タブ）も「デバッグ」の画面に出す（2026-10-06 記録タブを外したため）。
     /// </summary>
-    private bool showTestTab;
-
-    /// <summary>記録タブのクリックを数える。</summary>
-    private readonly TapCounter logTabTaps = new();
-
-    /// <summary>左上の「機能」の文字のクリックを数える（5 回で「デバッグ」を出す・隠す）。</summary>
     private readonly TapCounter featureTaps = new();
 
     /// <summary>左ペインに「デバッグ」を出しているか。既定は隠す。保存しない（読み直すと隠れる）。</summary>
@@ -317,6 +311,14 @@ public sealed class MainWindow : Window, IDisposable
         }
 
         feature.DrawRight();
+
+        // 「デバッグ」の画面の下に宿屋の検証を出す（2026-10-06 記録タブを外したので、ここから出す）。
+        if (feature is DebugFeature)
+        {
+            ImGui.Spacing();
+            if (ImGui.CollapsingHeader("宿屋の検証（ベンチャー回収の宿屋へ移動できるか）"))
+                this.DrawInnTest();
+        }
     }
 
     // ------------------------------------------------------------------
@@ -425,129 +427,38 @@ public sealed class MainWindow : Window, IDisposable
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             ImGui.SetTooltip("ON にすると、GBR の自動採集中にベンチャーが溜まったら、採集の切れ目で宿屋へ行って回収し、採集に戻ります。\nOFF なら回収しません。");
 
+        // 状態の表示（状態・GBR の状態・「いますぐ回収へ向かう」）と、「設定」「必要なプラグイン」「記録」のタブは
+        // 要望で外した。設定はタブに入れずにそのまま並べる。
+        // 失敗のあとの待ち時間だけは残す（回収しない理由が分かり、その場で解除できるため。出るのは待っている間だけ）。
+        this.DrawCooldown();
+
         ImGui.Separator();
-        this.DrawStatus();
-        ImGui.Separator();
-
-        using var tabs = ImRaii.TabBar("##vrTabs");
-
-        if (!tabs)
-            return;
-
-        this.DrawSettingsTab();
-        this.DrawPluginsTab();
-        this.DrawLogTab();
-
-        // 検証の途中で隠すと中止のボタンまで消えるので、動いている間は出したままにする。
-        if (this.showTestTab || this.innTest.Running)
-            this.DrawTestTab();
+        this.DrawSettings();
     }
 
     // ------------------------------------------------------------------
 
-    private void DrawStatus()
+    /// <summary>失敗のあと（または回収不要のあと）、次を試すまでの待ち時間。待っている間だけ出す。</summary>
+    private void DrawCooldown()
     {
-        var (label, color) = this.relay.Current switch
-        {
-            RelayController.Phase.Off
-                => ("停止中", ImGuiColors.DalamudGrey),
-            RelayController.Phase.Watching
-                => ("監視中", ImGuiColors.HealerGreen),
-            RelayController.Phase.WaitingForBreak
-                => ("採集の切れ目を待っています", ImGuiColors.DalamudYellow),
-            RelayController.Phase.Returning
-                => ("宿屋へ移動中", ImGuiColors.DalamudYellow),
-            RelayController.Phase.Collecting
-                => ("回収中", ImGuiColors.DalamudYellow),
-            RelayController.Phase.Resuming
-                => ("採集へ復帰中", ImGuiColors.DalamudYellow),
-            _ => ("不明", ImGuiColors.DalamudGrey),
-        };
-
-        ImGui.TextUnformatted("状態:");
-        ImGui.SameLine();
-        ImGui.TextColored(color, label);
-
-        ImGui.TextUnformatted(this.relay.Detail);
-
-        // GBR の状態も並べて出す。どちらが動いているかを取り違えないため。
-        var gbrEnabled = this.gatherBuddy.IsAutoGatherEnabled();
-
-        ImGui.TextUnformatted("GatherBuddyReborn:");
-        ImGui.SameLine();
-
-        if (gbrEnabled is null)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudGrey, "状態を読めません");
-        }
-        else
-        {
-            ImGui.TextColored(
-                gbrEnabled.Value ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey,
-                gbrEnabled.Value ? "自動採集 ON" : "自動採集 OFF");
-
-            var status = this.gatherBuddy.StatusText();
-
-            if (!string.IsNullOrEmpty(status))
-            {
-                ImGui.SameLine();
-                ImGui.TextColored(ImGuiColors.DalamudGrey, $"（{status}）");
-            }
-        }
-
-        if (!this.gatherBuddy.Subscribed)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudYellow,
-                "GatherBuddyReborn からの切り替え通知をまだ受け取れていません。");
-            ImGui.TextColored(ImGuiColors.DalamudGrey,
-                "GatherBuddyReborn が起動していれば、数秒で購読します。");
-        }
-
-        if (this.relay.CollectedCount > 0 || !string.IsNullOrEmpty(this.relay.LastResult))
-        {
-            ImGui.TextUnformatted($"回収した回数: {this.relay.CollectedCount}");
-
-            if (!string.IsNullOrEmpty(this.relay.LastResult))
-                ImGui.TextColored(ImGuiColors.DalamudGrey, this.relay.LastResult);
-        }
-
         var cooldown = this.relay.CooldownMinutesLeft;
 
-        if (cooldown > 0)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudYellow,
-                $"{this.relay.CooldownReason}、あと {cooldown:F0} 分は回収を試しません。");
-            ImGui.SameLine();
+        if (cooldown <= 0)
+            return;
 
-            if (ImGui.Button("いま解除する"))
-                this.relay.ClearCooldown();
-        }
+        ImGui.TextColored(ImGuiColors.DalamudYellow,
+            $"{this.relay.CooldownReason}、あと {cooldown:F0} 分は回収を試しません。");
+        ImGui.SameLine();
 
-        if (this.relay.Active
-            && this.relay.Current is RelayController.Phase.Watching
-                or RelayController.Phase.WaitingForBreak)
-        {
-            if (ImGui.Button("いますぐ回収へ向かう"))
-                this.relay.ForceCollectNow();
-
-            if (ImGui.IsItemHovered())
-            {
-                ImGui.SetTooltip(
-                    "採集の切れ目を待たずに回収へ向かいます。\n"
-                    + "戦闘中などの危ない状態では、それが終わるまで待ちます。");
-            }
-        }
+        if (ImGui.Button("いま解除する"))
+            this.relay.ClearCooldown();
     }
 
     // ------------------------------------------------------------------
 
-    private void DrawSettingsTab()
+    /// <summary>ベンチャー回収の設定（以前の「設定」タブの中身）。</summary>
+    private void DrawSettings()
     {
-        using var tab = ImRaii.TabItem("設定");
-
-        if (!tab)
-            return;
-
         ImGui.TextWrapped(
             "「有効」にチェックを入れると、GBR の自動採取中にベンチャー回収を行います。");
 
@@ -703,8 +614,6 @@ public sealed class MainWindow : Window, IDisposable
 
         ImGui.TextColored(ImGuiColors.DalamudGrey,
             "宿屋の部屋の呼び鈴で回収します。宿屋までの移動（テレポート・都市内の移動・受付との会話）は Lifestream が行います。");
-        ImGui.TextColored(ImGuiColors.DalamudGrey,
-            "ソリューション・ナインには宿屋がありません。");
 
         if (this.config.InnAuto)
         {
@@ -723,9 +632,6 @@ public sealed class MainWindow : Window, IDisposable
                 "選んでいる宿屋の都市のエーテライトにアクセスしていません。このままでは回収へ向かえません。");
         }
 
-        ImGui.TextColored(ImGuiColors.DalamudGrey,
-            "宿屋が未解放（開始都市の宿屋のクエストが済んでいない）だと入れません。");
-
         if (this.inns.Skipped.Count > 0)
         {
             ImGui.TextColored(ImGuiColors.DalamudYellow,
@@ -739,13 +645,8 @@ public sealed class MainWindow : Window, IDisposable
     /// 検証（デバッグ用）：指定した宿屋へ移動できるかを、ベンチャーを待たずに確かめる。
     /// 回収と同じ部品（InnTrip・BellRunner）で動くので、ここで通れば回収のときも通る。
     /// </summary>
-    private void DrawTestTab()
+    private void DrawInnTest()
     {
-        using var tab = ImRaii.TabItem("検証");
-
-        if (!tab)
-            return;
-
         ImGui.TextWrapped(
             "ほかの宿屋にも移動できるかを確かめるためのものです。"
             + "回収のときと同じ仕組み（Lifestream の宿屋機能・呼び鈴の処理）で動きます。"
@@ -922,141 +823,5 @@ public sealed class MainWindow : Window, IDisposable
         }
 
         return string.Join("\n", lines);
-    }
-
-    // ------------------------------------------------------------------
-
-    private void DrawPluginsTab()
-    {
-        using var tab = ImRaii.TabItem("必要なプラグイン");
-
-        if (!tab)
-            return;
-
-        ImGui.TextWrapped("どれか1つでも欠けると、回収の流れが途中で止まります。");
-        ImGui.Spacing();
-
-        DrawRow(this.gatherBuddy, "自動採集の ON / OFF と、切り替えの通知を受け取ります");
-        DrawRow(this.retainer, "ベンチャーが回収できるかを判断し、実際の回収を行います");
-        DrawRow(this.lifestream, "帰還先の宿屋へ入るのに使います（テレポート・都市内の移動・受付との会話）");
-        DrawRow(this.navmesh, "宿屋の部屋の中で呼び鈴まで歩くのに使います");
-
-        this.DrawNavmeshState();
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // IPC の失敗内容を画面に出す。
-        // dalamud.log は 100MB で書き込みが止まり、記録が残らないことがあるため。
-        ImGui.TextUnformatted("直近の通信の失敗");
-
-        var any = false;
-
-        foreach (var gate in new IpcGate[]
-                 { this.gatherBuddy, this.retainer, this.lifestream, this.navmesh })
-        {
-            foreach (var (label, detail) in gate.LastErrors)
-            {
-                any = true;
-                ImGui.TextColored(ImGuiColors.DalamudYellow, $"{gate.DisplayName} / {label}");
-                ImGui.TextWrapped($"    {detail}");
-            }
-        }
-
-        if (!any)
-            ImGui.TextColored(ImGuiColors.DalamudGrey, "ありません。");
-
-        return;
-
-        static void DrawRow(IpcGate gate, string why)
-        {
-            var loaded = gate.IsLoaded;
-
-            ImGui.TextColored(
-                loaded ? ImGuiColors.HealerGreen : ImGuiColors.DalamudRed,
-                loaded ? "導入済み" : "見つかりません");
-
-            ImGui.SameLine();
-            ImGui.TextUnformatted(gate.DisplayName);
-            ImGui.TextColored(ImGuiColors.DalamudGrey, $"    {why}");
-        }
-    }
-
-    /// <summary>
-    /// vnavmesh のいまの状態を出す。
-    ///
-    /// 呼び鈴へ歩けない原因がここに集まるので、推測せずに読めるようにしておく。
-    /// 特に「Auto load mesh」が切れていると、エリアを移っても
-    /// ナビメッシュが読み込まれず、待っても永久に使えるようにならない。
-    /// </summary>
-    private void DrawNavmeshState()
-    {
-        if (!this.navmesh.IsLoaded)
-            return;
-
-        var ready = this.navmesh.IsReady();
-        var progress = this.navmesh.BuildProgress();
-        var autoLoad = this.navmesh.IsAutoLoad();
-
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "    いまのエリアのナビメッシュ:");
-        ImGui.SameLine();
-
-        if (ready)
-        {
-            ImGui.TextColored(ImGuiColors.HealerGreen, "使えます");
-        }
-        else if (progress is { } p && p >= 0)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudYellow, $"構築中（{p * 100:F0}%%）");
-        }
-        else
-        {
-            ImGui.TextColored(ImGuiColors.DalamudRed, "読み込まれていません");
-        }
-
-        // 自動読み込みが切れていると、こちらから頼まない限り読み込まれない。
-        if (autoLoad == false)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudYellow,
-                "    vnavmesh の「Auto load mesh」が切れています。");
-            ImGui.TextColored(ImGuiColors.DalamudGrey,
-                "    回収のときはこちらから読み込みを頼むので動きますが、"
-                + "入れておくと待ち時間が短くなります。");
-        }
-    }
-
-    // ------------------------------------------------------------------
-
-    private void DrawLogTab()
-    {
-        using var tab = ImRaii.TabItem("記録");
-
-        // タブ自体のクリックを数える。選ばれていないときも数えるため、if (!tab) より前で見る。
-        if (ImGui.IsItemClicked() && this.logTabTaps.Tap(DateTime.UtcNow))
-        {
-            this.showTestTab = !this.showTestTab;
-            this.log.Write("Info", this.showTestTab ? "検証タブを表示しました" : "検証タブを隠しました");
-        }
-
-        if (!tab)
-            return;
-
-        if (ImGui.Button("消去"))
-            this.log.Clear();
-
-        ImGui.SameLine();
-        ImGui.TextColored(ImGuiColors.DalamudGrey,
-            "ここに出ないときは /xllog も見てください。");
-
-        ImGui.Separator();
-
-        using var child = ImRaii.Child("##log", new Vector2(-1, -1));
-
-        if (!child)
-            return;
-
-        foreach (var line in this.log.Snapshot())
-            ImGui.TextUnformatted(line);
     }
 }
