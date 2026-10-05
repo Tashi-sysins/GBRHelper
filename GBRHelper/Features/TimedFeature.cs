@@ -139,7 +139,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
     private bool session, stopRequested;
     private readonly ReductionWait reduction = new();
-    private DateTime nextLoad, nextPoll;
+    private DateTime nextLoad, nextPoll, nextRowsRefresh;
     private RecoveryRetry recoveryRetry = new();
     private Dictionary<uint, ReductionStock>? beforeReduction;
     private object? autoInstance;
@@ -161,7 +161,20 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         catch (Exception ex) { crystalRecipes = []; crystalError = "クリスタルの対応表を読めません：" + ex.GetBaseException().Message; }
         rows = BuildRows(catalog, recipes);
         elements = BuildElements(catalog, crystalRecipes);
+        nextRowsRefresh = DateTime.UtcNow + GatheringCompletionReader.FolkloreRecheckInterval;
         nextHeldRead = default;
+    }
+
+    /// <summary>
+    /// 行の「採れない理由」を作り直す（品の一覧と対応表は読み直さない）。伝承録を読んだ・レベルが上がったのを、
+    /// 画面に数秒で出すため（2026-10-06。前は品の一覧を読んだときだけ作っていて、伝承録を読んでも「伝承録を読んでいません」のままだった）。
+    /// 行は画面と登録の並びに使うだけで、選んだ霊砂・属性は設定（SandChoices・CrystalChoices）にあるので、作り直しても選択は変わらない。
+    /// </summary>
+    private void RefreshRows(GatherableCatalog cat)
+    {
+        nextRowsRefresh = DateTime.UtcNow + GatheringCompletionReader.FolkloreRecheckInterval;
+        rows = BuildRows(cat, recipes);
+        elements = BuildElements(cat, crystalRecipes);
     }
 
     private bool CanGather(GatherableCatalog.Entry e) => MaterialPlan.IsTimed(e) && !e.TreasureMap
@@ -246,6 +259,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     public void DrawRight()
     {
         if (catalog is null && Svc.PlayerState.IsLoaded && DateTime.UtcNow >= nextLoad) Try(Load);
+        else if (catalog is { } cat && DateTime.UtcNow >= nextRowsRefresh) Try(() => RefreshRows(cat));
         RefreshOtherLists();
 
         if (FoldingHeader.Draw("霊砂", ref sandOpen, SandHeaderColor))

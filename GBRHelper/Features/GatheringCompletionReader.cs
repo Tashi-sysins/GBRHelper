@@ -158,6 +158,25 @@ public sealed class GatheringCompletionReader
     public void InvalidateFolklore()
         => this.folkloreByContentId.Clear();
 
+    /// <summary>伝承録の覚えを捨てる間隔。ゲームで伝承録を読むと、この時間のうちに各機能の画面へ反映される（未採取品の採取は、消したリストも作り直す。全素材の補充のリストは「Auto-Gatherに追加」を押したときに入る）。</summary>
+    public static readonly TimeSpan FolkloreRecheckInterval = TimeSpan.FromSeconds(5);
+    private DateTime nextFolkloreRecheck;
+
+    /// <summary>
+    /// 一定の間隔（FolkloreRecheckInterval）で伝承録の覚えを捨てる。毎フレーム呼ぶ。捨てたら true。
+    /// 【なぜ】覚えを捨てるのが再解析・ログインし直し・ボタンを押したときだけだと、伝承録を読んでも
+    /// 「伝承録が要る品だけ」で暗くなった Lv 帯が白に戻らない（確認「読んだら再びチェックできる様になる」）。
+    /// 確かめるのは本の数（数十冊）の解放の印だけなので、5 秒ごとでも軽い。
+    /// </summary>
+    public bool RecheckFolklore(DateTime now)
+    {
+        if (now < this.nextFolkloreRecheck)
+            return false;
+        this.nextFolkloreRecheck = now + FolkloreRecheckInterval;
+        this.folkloreByContentId.Clear();
+        return true;
+    }
+
     /// <summary>全キャラのキャッシュを捨てる（GBR 再ロード時など）。</summary>
     public void InvalidateAll()
     {

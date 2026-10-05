@@ -39,6 +39,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly RunLog log;
     private readonly TimedFeature timedFeature;
     private readonly GatherProfileController gatherProfiles;
+    private readonly GatheringCompletionReader completionReader;
 
     private readonly GatherBuddyIpc gatherBuddy;
     private readonly AutoRetainerIpc retainer;
@@ -91,7 +92,7 @@ public sealed class Plugin : IDalamudPlugin
         // 機能②：ベンチャー依頼品の解放採取（Lv 帯ごとのボタンで、未採取の品を GBR の自動採集リストへ登録する）
         var listAccess = new GbrAutoGatherListAccess(gbrConfigAccess);
         var catalogBuilder = new LiveCatalogBuilder(gbrConfigAccess);
-        var completionReader = new GatheringCompletionReader(new LiveCompletionEffects());
+        var completionReader = this.completionReader = new GatheringCompletionReader(new LiveCompletionEffects());
         var timedAccess = new GbrTimedAccess(gbrConfigAccess);
         var timed = new TimedFeature(this.config, catalogBuilder, completionReader, listAccess,
             this.gatherBuddy, timedAccess,
@@ -239,6 +240,9 @@ public sealed class Plugin : IDalamudPlugin
 
             // 回収の流れより先に確かめる。動き出したフレームで、GBR が AutoRetainer を待ち始める前に止めるため。
             this.gbrGuard.Tick(this.relay.Active);
+
+            // ゲームで伝承録を読んだのを、各機能の画面へ数秒のうちに反映する（未採取品の採取は、消したリストも作り直す。2026-10-06）。
+            this.completionReader.RecheckFolklore(DateTime.UtcNow);
 
             // 精選キューをベンチャー回収のOFF操作で中断しない。
             this.gatherProfiles.Tick();

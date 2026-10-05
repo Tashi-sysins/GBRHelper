@@ -141,23 +141,26 @@ public sealed class UnvisitedFeature : IFeature
             this.catalog = null; // GBR の GameData は共通なので再利用可能だが、安全側に倒す
             this.lastReanalyzeAt = DateTime.MinValue;
             this.lastWriteSummary = string.Empty;
+            this.completedBands.Clear();
         }
 
         if (DateTime.UtcNow >= this.nextCompletionCheck)
         {
             this.nextCompletionCheck = DateTime.UtcNow.AddSeconds(5);
-            this.RemoveCompletedLists();
+            this.SyncCompletedLists();
         }
     }
 
     private DateTime nextCompletionCheck;
 
     /// <summary>
-    /// 対象品がなくなった Lv 帯のリストを消す（要望「対象品がなくなったら自動的にプリセット削除」）。
+    /// 対象品がなくなった Lv 帯のリストを消し、対象品が戻った帯のリストを戻す（判断は CompletedBandSync）。
     /// GBR の自動採集が止まっていて、ほかの自動処理も無いときだけ、リストの作り直しを頼む（GBR は止めない。RefreshWhenStopped）。
     /// 作り直しは対象 0 件の帯のリストを消し、チェックは残す（画面ではチェック済みのまま暗くして触れなくする）。
+    /// 伝承録を読んで対象品が戻ると、残っているチェックのままリストを作り直す（2026-10-06。伝承録の読み直しは
+    /// GatheringCompletionReader.RecheckFolklore が 5 秒ごとに行う）。
     /// </summary>
-    private void RemoveCompletedLists()
+    private void SyncCompletedLists()
     {
         var cid = this.profiles.Character;
         if (cid == 0 || this.gbrIpc.IsAutoGatherEnabled() != false || this.busyReason() is not null)
@@ -174,36 +177,35 @@ public sealed class UnvisitedFeature : IFeature
             return;
 
         this.RefreshListSnapshot(force: false);
-        var withList = selected.Select(GatherProfiles.Decode)
-            .Where(x => this.FindOwnList(OwnListName(x.Job, x.Band)) is not null)
+        var bands = selected.Select(GatherProfiles.Decode)
+            .Select(x => (x.Job, x.Band, Name: OwnListName(x.Job, x.Band)))
+            .Select(x => (x.Job, x.Band, x.Name, HasList: this.FindOwnList(x.Name) is not null))
             .ToArray();
-        if (withList.Length == 0)
-            return;
 
         // 採った品の印を読み直す（読んだ結果は覚えておく作りなので、確かめるときだけ捨てる）。
-        this.reader.InvalidateCharacter(cid);
-        foreach (var (job, band) in withList)
+        // リストの無い帯は、品が戻るのを伝承録の読み直しで見る。採った印は増える一方なので読み直さなくてよい。
+        if (bands.Any(x => x.HasList))
+            this.reader.InvalidateCharacter(cid);
+
+        var catalog = this.catalog;
+        var (action, name) = this.completedBands.Decide(bands.Select(x =>
         {
-            var s = UnvisitedPlan.Summarize(this.catalog, this.reader, job, band, this.VentureOnly);
-            var name = OwnListName(job, band);
-            if (s.Ungathered != 0 || s.Unknown != 0)
-            {
-                this.completionRequested.Remove(name);
-                continue;
-            }
-
-            // 手で足した品が残っていると作り直してもリストは消えない。同じ帯には一度だけ頼む（記録を増やし続けない）。
-            if (!this.completionRequested.Add(name))
-                continue;
-
-            this.log.Write("機能", $"{(job == GatherableCatalog.Job.Miner ? "採掘" : "園芸")} Lv{band.MinLevel}～Lv{band.MaxLevel} の対象品がなくなったので、リストを消します");
-            this.profiles.RefreshWhenStopped(GatherProfileKind.Unlock);
+            var s = UnvisitedPlan.Summarize(catalog, this.reader, x.Job, x.Band, this.VentureOnly);
+            return new CompletedBandSync.Band(x.Name, x.HasList, s.Ungathered, s.Unknown);
+        }));
+        if (action == CompletedBandSync.Action.None)
             return;
-        }
+
+        var (job, band, _, _) = bands.First(x => x.Name == name);
+        var label = $"{(job == GatherableCatalog.Job.Miner ? "採掘" : "園芸")} Lv{band.MinLevel}～Lv{band.MaxLevel}";
+        this.log.Write("機能", action == CompletedBandSync.Action.Remove
+            ? $"{label} の対象品がなくなったので、リストを消します"
+            : $"{label} の対象品が戻ったので（伝承録を読んだなど）、リストを作り直します");
+        this.profiles.RefreshWhenStopped(GatherProfileKind.Unlock);
     }
 
-    /// <summary>対象品がなくなってリストの削除を頼んだ帯（リスト名）。対象品が戻ったら外す。</summary>
-    private readonly HashSet<string> completionRequested = new(StringComparer.Ordinal);
+    /// <summary>リストの削除・作り直しを頼んだ帯の覚え（CompletedBandSync）。</summary>
+    private readonly CompletedBandSync completedBands = new();
 
     // ------------------------------------------------------------------
     // 右ペイン
@@ -272,7 +274,7 @@ public sealed class UnvisitedFeature : IFeature
         {
             var conflicts = this.listSnapshot is { } lists ? UnvisitedPlan.ConflictingItemIds(lists, listName, ActiveTag) : null;
             if (summary.Ungathered == 0)
-                tip.Add(new("登録できる品がありません（伝承録が要る品だけです）。", 1));
+                tip.Add(new("登録できる品がありません（伝承録が要る品だけです。読むと戻ります）。", 1));
             foreach (var e in this.catalog.InBand(job, band)
                          .Where(e => !(ventureOnly && !e.VentureRequestable))
                          .Where(e => this.reader.Query(e) == GatheringCompletionReader.State.Ungathered))
@@ -411,7 +413,7 @@ public sealed class UnvisitedFeature : IFeature
         var selected = profiles.Selected(GatherProfileKind.Unlock, job, band);
         var available = data is { Available: true };
 
-        // 対象品がなくなった帯は、チェックが付いていても暗くして触れなくする（リストは RemoveCompletedLists で消す）。
+        // 対象品がなくなった帯は、チェックが付いていても暗くして触れなくする（リストは SyncCompletedLists で消す。伝承録を読んで品が戻ると白に戻り、リストも作り直す）。
         var completed = data is { Completed: true };
         bool clicked;
         using (ImRaii.Disabled(checkBlock is not null || (requireData && !available) || completed))
