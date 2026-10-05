@@ -1,0 +1,1395 @@
+# GBRHelper 機能①「GBR の日本語表示」の辞書（GatherBuddyReborn 7.5.6.1 用・2026-10-05 作成）
+#
+# 書き方：英語<TAB>日本語[<TAB>種別]
+#   ・「# 」（# と空白）で始まる行と空行は読まない（「#Alarm Groups」のように # の直後が空白でない行は中身）。
+#   ・\n は改行、\t はタブ、\\ は \ そのもの。
+#   ・英語に {0} {1} … を含む行は「型」（{n} の所はどんな文字列にも合い、訳の同じ {n} へそのまま入る）。
+#     {Alarm} のような数字でない波括弧は普通の文字。
+#   ・種別（3 列目）は試験だけが読む。空なら「GBR か ElliLib の DLL に、この英語がそのまま入っている」ことを試験で確かめる。
+#       part  … ラベルの見える部分（DLL には「Navigate##{0}」のように ## 以降と一緒に入っている）
+#       upper … GBR が大文字にして出す見出し（DLL には大文字にする前の形で入っている）
+#       enum  … 列挙の名前（DLL に文字列としては入っていない）
+#       built … 文字列を組み立てて作る文（DLL には部品ごとに入っている）
+#
+# 英語は GBR 7.5.6.1 のソース（git describe 7.5.6.1）から抜き出した。
+# 訳は自前。他の翻訳プラグインの辞書は使っていない。ゲームの用語は日本語クライアントのゲームデータ（Action・Addon・
+# GatheringPointBonusType・Item 等の同じ行）で確かめた表記に合わせた。
+# 「※（GBRHelper の補足）」は GBR の元の説明には無い、GBR のソースを読んで分かった注意。
+
+# ======================================================================
+# タブ名と、タブに乗せたときの説明
+Config	設定
+Set up your very own GatherBuddy to your meticulous specifications.\nIf you treat him well, he might even become a real boy.	GatherBuddy をあなた好みに細かく設定します。\n大事にすれば、いつか本物の男の子になるかもしれません。
+Config Presets	採集プリセット
+Configure what actions to use with Auto-Gather.	自動採集で使うアクションを設定します。
+Debug	デバッグ
+I really hope there is a good reason for you seeing this.	これを見ているのには、ちゃんとした理由があると信じています。
+
+# ======================================================================
+# 設定タブ：左の欄（分類の見出しは大文字で出る）
+Search settings...	設定を検索（英語の項目名で）…
+No settings matched your search.	一致する設定はありません（英語の項目名で検索してください）。
+AUTO-GATHER	自動採集	upper
+GENERAL	一般	upper
+INTERFACE	画面表示	upper
+General	全般
+Fishing	釣り
+Advanced	詳細
+Gather Command	/gather コマンド
+Set Names	装備セットの名前
+Alarms	アラーム
+Messages	メッセージ
+Config Window	メイン画面
+Fish Timer	釣りタイマー
+Fish Stats	釣果の集計
+Gather Window	採集小窓
+Spearfishing	刺突漁
+Colors	色
+# 検索したときの見出し（「分類: ページ」を大文字にしたもの）
+AUTO-GATHER: GENERAL	自動採集：全般	upper
+AUTO-GATHER: FISHING	自動採集：釣り	upper
+AUTO-GATHER: ADVANCED	自動採集：詳細	upper
+GENERAL: GATHER COMMAND	一般：/gather コマンド	upper
+GENERAL: SET NAMES	一般：装備セットの名前	upper
+GENERAL: ALARMS	一般：アラーム	upper
+GENERAL: MESSAGES	一般：メッセージ	upper
+INTERFACE: CONFIG WINDOW	画面表示：メイン画面	upper
+INTERFACE: FISH TIMER	画面表示：釣りタイマー	upper
+INTERFACE: FISH STATS	画面表示：釣果の集計	upper
+INTERFACE: GATHER WINDOW	画面表示：採集小窓	upper
+INTERFACE: SPEARFISHING	画面表示：刺突漁	upper
+COLORS	色	upper
+
+# ======================================================================
+# 設定タブ：自動採集 › 全般
+Select Mount	マウントの選択
+Mount Roulette	マウント・ルーレット
+Mount Up Distance	騎乗する距離
+The distance at which you will mount up to move to a node.	採集点へ移動するとき、この距離（ヤルム）以上離れていたらマウントに乗ります。
+Landing Distance	着地する距離
+The fixed distance from the node at which you will try to land.\n\nUsed when random landing positions are disabled, or when no collected data is available.\n\nLow values increase the chance of being unable to dismount properly.\nHigh values may produce weird-looking paths.\nReasonable values are between 4 and 8 yalms.	採集点からこの距離の所に着地しようとします。\n\nランダムな着地点を使わないとき、または集めた着地データが無いときに使います。\n\n小さいと、うまく降りられないことが増えます。\n大きいと、不自然な経路になることがあります。\n目安は 4〜8 ヤルムです。
+Move while mounting up	乗りながら移動を始める
+Begin pathfinding to the next node while summoning a mount	マウントを呼んでいる間に、次の採集点への経路探しを始めます
+Play a sound when done gathering	採り終えたら音を鳴らす
+Play a sound when auto-gathering shuts down because your list is complete	リストを全部採り終えて自動採集が止まったときに、音を鳴らします
+Playback Volume	再生音量
+The volume of the sound played when auto-gathering shuts down because your list is complete.\nHold CTRL and click to enter custom value	リストを全部採り終えて自動採集が止まったときに鳴らす音の大きさです。\nCtrl を押しながらクリックすると、数値を直接入力できます
+Check Retainer Inventories	リテイナーの所持品も数える
+Use Allagan Tools to check retainer inventories when doing inventory calculations	所持数を数えるとき、Allagan Tools を使ってリテイナーの所持品も含めます
+Teleport to next timed item	次の時限の品へ先に飛んでおく
+Teleport to an upcoming timed node or fishing spot and wait at the Aetheryte when there is nothing else to gather\nThis option has priority over going home when idle.	ほかに採るものが無いとき、次に出る時限の採集点（または釣り場）へテレポートして、エーテライトで待ちます。\nこの設定は「待ち時間は帰宅」より優先されます。
+Go home when done	終わったら帰宅
+Uses the '/li auto' command to take you home when done gathering	採り終えたら、'/li auto' コマンド（Lifestream）で家へ帰ります
+Go home when idle	待ち時間は帰宅
+Uses the '/li auto' command to take you home when waiting for timed nodes	時限の採集点を待つ間、'/li auto' コマンド（Lifestream）で家へ帰ります
+Gather any crystals when The Giving Land is off cooldown	「大地の恵み」が使えるときはクリスタルを採る
+Gather random crystals on any regular node when The Giving Land is avaiable regardles of current target item.	「大地の恵み」が使えるときは、狙っている品に関係なく、通常の採集点でクリスタル類を採ります。\n※（GBRHelper の補足）クリスタルに当たる採集プリセットで「大地の恵み」を有効にしておく必要があります（「使うアクションを自動で決める」が ON のプリセットなら不要）。
+Use skills for fallback items	予備リストの品にもスキルを使う
+Use skills when gathering items from fallback presets	予備（Fallback）リストの品を採るときも、スキルを使います
+Abandon nodes without needed items	必要な品が無い採集点はやめる
+Stop gathering and abandon the node when you have gathered enough items,\nor if the node didn't have any needed items on the first place.	必要な数を採り終えたとき、または最初から必要な品が無い採集点では、\n採集をやめて採集点を離れます。
+Always gather maps when available	地図があれば必ず先に採る
+GBR will always grab maps first if it sees one in a node	採集点に地図があれば、GBR はいつも最初にそれを採ります\n※（GBRHelper の補足）地図を採れる時刻になっていて（ゲームの決まりの待ち時間）、同じ地図を持っていないときだけ採ります。
+
+# ======================================================================
+# 設定タブ：自動採集 › 釣り
+Use AutoHook Global Preset	AutoHook のグローバルプリセットを使う
+Clear AutoHook's selected custom preset and let AutoHook use its built-in Global Preset for rod fishing.\nThis takes precedence over both GBR-generated presets and fish-ID AutoHook presets.\nSpearfishing still uses GBR-generated AutoGig presets.	竿釣りのとき、AutoHook で選ばれている自作プリセットを外し、AutoHook に最初からある「グローバルプリセット」で釣らせます。\nGBR が作るプリセットや、魚のアイテム番号を名前にしたプリセットより優先されます。\n刺突漁は、これまでどおり GBR が作る AutoGig 用のプリセットを使います。
+Use existing AutoHook presets	自分で作った AutoHook プリセットを使う
+Use your own AutoHook presets instead of GBR-generated ones.\nName your preset using the fish's Item ID (e.g., '46188' for Goldentail).\nFind Fish IDs by hovering over fish in the Fish tab.\nIgnored when 'Use AutoHook Global Preset' is enabled.\nYour presets will never be deleted - only GBR-generated presets are cleaned up.	GBR が作るプリセットの代わりに、自分の AutoHook プリセットを使います。\nプリセットの名前は、魚のアイテム番号にしてください（例：ゴールデンイールなら '46188'）。\n魚の番号は、「魚」タブで魚にマウスを乗せると分かります。\n「AutoHook のグローバルプリセットを使う」が ON のときは無視されます。\n自分のプリセットは消されません（片付けるのは GBR が作ったものだけです）。
+Max Fishing Spot Minutes	同じ位置で釣り続ける最長時間（分）
+The maximum number of minutes you will fish at a fishing spot.	1 つの釣り場の同じ位置で釣り続ける最長の時間（分）です。\n※（GBRHelper の補足）時間が来ると竿を上げ、同じ釣り場の中で 10 ヤルム以上離れた別の位置へ移って釣り直します（別の釣り場へは移りません）。0（入れ直した直後の値）は時間の制限なしです。
+Opt-in to fishing data collection	釣果データの送信に同意する
+With this enabled, whenever you catch a fish the data for that fish will be uploaded to a remote server\nThe purpose of this data collection is to allow for a usable auto-fishing feature to be built\nNo personal information about you or your character will be collected, only data relevant to the caught fish\nYou can opt-out again at any time by simply disabling this checkbox.	ON にすると、魚を釣るたびに、その魚のデータが外部のサーバーへ送られます。\nこのデータ収集の目的は、使える自動釣り機能を作ることです。\nあなたやキャラクターの個人情報は集めず、釣った魚に関するデータだけを集めます。\nこのチェックを外せば、いつでも送信をやめられます。\n※（GBRHelper の補足）魚（刺突漁を含む）を自動採集するには ON が必要です。OFF だと自動採集が止まります。
+Auto Collectables	収集品の魚を自動で受け取る
+Auto accept/decline collectable fish based on minimum collectability.	収集品の魚を釣ったとき、最低の収集価値を基準に、受け取るか断るかを自動で選びます。\n※（GBRHelper の補足）GBR 7.5.6.1 では収集価値を比べず、「収集品として受け取るか」の確認にいつも「はい」で答えます（断ることはありません）。
+Defer repairs during fishing buffs	釣りの強化中は修理を後回し
+Prevents GBR from stopping fishing for repairs when you have active fishing skill buffs.\nBuffs like Patience, Surface Slap, Identical Cast, Prize Catch, etc. will be respected.	釣りスキルの効果がかかっている間は、修理のために釣りを止めません。\nペーシェンス・トレードリリース・セイムキャスト・大物狙いなどの効果が対象です。
+Defer aetherial reduction during fishing buffs	釣りの強化中は精選を後回し
+Prevents GBR from stopping fishing for aetherial reduction when you have active fishing skill buffs.	釣りスキルの効果がかかっている間は、精選のために釣りを止めません。
+Defer materia extraction during fishing buffs	釣りの強化中はマテリア精製を後回し
+Prevents GBR from stopping fishing for materia extraction when you have active fishing skill buffs.	釣りスキルの効果がかかっている間は、マテリア精製のために釣りを止めません。
+Use Hook Timers in AutoHook Presets	作るプリセットに当たりの時間帯を入れる
+Enable bite timer windows in generated AutoHook presets.	GBR が作る AutoHook プリセットに、魚ごとの当たりが来る時間帯を入れます。
+Manual Preset Generator	手動でプリセットを作る
+Select Target Fish:	狙う魚を選ぶ：
+None	なし
+Search...	検索…
+Preset Name:	プリセット名：
+The preset name should match the fish's Item ID for GBR to use it automatically.	GBR に自動で使わせるには、プリセット名を魚のアイテム番号と同じにしてください。
+Generate Preset	プリセットを作る
+
+# ======================================================================
+# 設定タブ：自動採集 › 詳細
+Repair gear when needed	必要なら装備を修理する
+Repair gear when it is almost broken	装備が壊れかけたら修理します\n※（GBRHelper の補足）自分で修理します。その装備を直せる製作職のレベル（装備のレベル−10 以上）とダークマターが要り、足りないと自動採集が止まります。OFF でも、耐久が 5% 以下になると自動採集は止まります。
+Repair Threshold	修理する耐久度（％）
+The percentage of durability at which you will repair your gear.	耐久度がこの％まで下がったら、装備を修理します。
+Enable materia extraction	マテリア精製を使う
+Automatically extract materia from items with a complete spiritbond	錬精度が 100% になった装備から、自動でマテリアを精製します
+Enable Aetherial Reduction	精選を使う
+Automatically perform Aetherial Reduction when idling or if the number of free inventory slots drops below 20	待ち時間、または所持品の空きが 20 未満になったとき、自動で精選します\n※（GBRHelper の補足）精選するのは収集品だけです。クエスト「生命、精選、もうひとつの答え」が済んでいないと、GBR がこの設定を自動で OFF に戻します。
+Always Reduce All Items	いつも全部精選する
+When unchecked: If the number of free inventory slots drops below 20 while gathering,\nemergency aetherial reduction is performed for only one item type.\nWhen checked: Emergency aetherial reduction is performed for all items at once.	OFF のとき：採集中に所持品の空きが 20 未満になると、\n緊急で 1 種類だけ精選します。\nON のとき：緊急時に、すべての品をまとめて精選します。
+Wait for AutoRetainer Multi-mode	AutoRetainer のマルチモードを待つ
+Pause GBR automatically when AutoRetainer has retainers to process during Multi-mode	AutoRetainer のマルチモード中に処理すべきリテイナーがいたら、GBR を自動で一時停止します
+AutoRetainer Threshold (Seconds)	何秒前から待つか（秒）
+How many seconds before a retainer venture completes GBR should pause and wait for MultiMode.	リテイナーのベンチャーが終わる何秒前から、GBR を止めてマルチモードを待つかです。
+Delay AutoRetainer for timed nodes	時限の採集点を優先する
+Wait to process retainers until after active/upcoming timed nodes are gathered.	出ている・もうすぐ出る時限の採集点を採り終えるまで、リテイナーの処理を待たせます。\n※（GBRHelper の補足）待たせるのは未知・伝説の採集点だけです（刻限の採集点では待たせません）。
+Diadem Auto-Aethercannon	ディアデムで「エーテルオーガー」を自動で撃つ
+Automatically target and fire aethercannon at nearby enemies when gauge is ready (≥200).\nOnly fires while not pathing/navigating. 2-second cooldown between uses.	ゲージが溜まったら（200 以上）、近くの敵を狙って自動で撃ちます。\n移動中は撃ちません。撃ったあと 2 秒は撃ちません。
+Diadem Windmire Jumps	ディアデムで Windmire を使って島を渡る
+Allows the use of Windmires for jumping between islands in the Diadem.\nWindmires will only be used when they provide a significant distance advantage over normal movement.	ディアデム諸島で、島と島の間を Windmire（島の間を飛ばしてくれる風）で渡れるようにします。\n普通に移動するより大きく近道になるときだけ使います。
+Re-enter The Diadem to Reset Clouded Nodes	幻の採集場所を出し直すためディアデムへ入り直す
+After gathering umbral items from a clouded node, re-enter the instance to make the node reappear.	幻の採集場所で「幻〜」の品（第四次復興用の幻火石など）を採ったあと、入り直して採集場所をもう一度出します。
+Item Sorting Method	品目の並べ方
+What method to use when sorting items internally	なし：Auto-Gatherに追加したリスト順（上から順番に）採取を行います。\n場所：採取ポイントの種類や近さに応じて採取順序を変更します。※霊砂やクリスタル集めには非推奨
+Location	場所（Location）	enum
+Lifestream Command	Lifestream に渡すコマンド
+The command used when idling or done gathering. DO NOT include '/li'\nBe careful when changing this, GBR does not validate this command!	待ち時間・採り終えたときに使うコマンドです。先頭の '/li' は書かないでください。\nGBR はこのコマンドを確かめないので、変えるときは注意してください！
+Anti-Stuck Cooldown	引っかかり脱出の間隔（秒）
+The time in seconds before the navigation system will reset if you are stuck.	引っかかりから抜け出す動き（ランダムな方向へ 1 秒動く）をしたあと、次に引っかかりを調べ始めるまでの秒数です。\n※（GBRHelper の補足）「引っかかった」と判断するまでの時間は「引っかかりと判断するまでの秒数」で決まります。ジャンプで抜け出す動きは、この秒数の 2 倍より間をあけて行います。
+Stuck Threshold	引っかかりと判断するまでの秒数
+The time in seconds before the navigation system will consider you stuck.	vnavmesh で移動している間に、この秒数のあいだ 2 ヤルムも進めなかったら「引っかかった」とみなします。
+Timed Node Precognition (Seconds)	時限の採集点を何秒前から「出ている」とみなすか（秒）
+How far in advance of the node actually being up GBR should consider the node to be up	時限の採集点が実際に出る何秒前から、出ているものとして扱うかです
+Execution delay (Milliseconds)	操作ごとの待ち時間（ミリ秒）
+Delay executing each action by the specified amount.	各操作の実行を、この時間だけ遅らせます。
+Enable Gathering Window Interaction (DISABLING THIS IS UNSUPPORTED)	採集画面を操作する（OFF は非サポート）
+Toggle whether to automatically gather items. (Disable this for 'nav only mode')	採集画面の操作（品を選んで採る）を自動で行うかどうかです。（OFF にすると「移動だけ」になります）
+Disable map marker navigation	地図の印を頼りに移動しない
+Whether or not to navigate using map markers (timed nodes only)	ON にすると、地図の印（未知・伝説・幻の採集場所が出ているとき、ゲームの地図に出る印）を頼りに移動しなくなります\n※（GBRHelper の補足）ON のときは印が出るのを待たず、候補の位置を近い順に回ります。刻限の採集点には印が出ないので、もともと関係しません。
+Use vnavmesh Navigation	vnavmesh で自動移動する
+Use vnavmesh Navigation to move your character automatically	vnavmesh を使ってキャラクターを自動で動かします\n※（GBRHelper の補足）OFF にすると、テレポートも含めて一切動かなくなります。
+Force Walking	飛ばずに地上を移動する
+Force walking to nodes instead of using mounts.	マウントを使わず、歩いて採集点へ行きます。\n※（GBRHelper の補足）実際に止まるのは「飛ぶこと」だけで、遠い採集点へは地上でマウントに乗って走ります。飛ばないので、水中の漁場へは潜れません。
+Disable Random Landing Positions	ランダムな着地点を使わない
+GBR automatically collects player gathering positions as landing positions (offsets).\nWhen unchecked: Lands at random position where players were observed gathering.\nWhen checked: Uses the fixed landing distance instead.\n	GBR は、ほかのプレイヤーが採集していた位置を自動で集めて、着地点として使っています。\nOFF のとき：その位置からランダムに選んで着地します。\nON のとき：代わりに「着地する距離」の決まった距離を使います。\n
+
+# ======================================================================
+# 設定タブ：一般 › /gather コマンド
+Preferred Job	優先する職
+Choose your job preference when gathering items that can be gathered by miners as well as botanists.\nThis effectively turns the regular gather command to /gathermin or /gatherbtn when an item can be gathered by both, ignoring the other options even on successive tries.	採掘師でも園芸師でも採れる品を採るとき、どちらを優先するかを選びます。\n両方で採れる品では、/gather が /gathermin か /gatherbtn と同じ動きになり、\n何度実行してももう片方には切り替わりません。\n※（GBRHelper の補足）自動採集でも、いまの職の次にこの職の採集点を優先します。
+No Preference	指定なし
+Miner	採掘師	enum
+Botanist	園芸師	enum
+Enable Gear Change	装備を自動で着替える
+Toggle whether to automatically switch gear to the correct job gear for a node.\nUses Miner Set, Botanist Set and Fisher Set.	採集点に合った職の装備に、自動で着替えます。\n「装備セットの名前」ページの 3 つの名前を使います。\n※（GBRHelper の補足）これは /gather の動きです。自動採集は、この設定に関係なく着替えます。
+Enable Teleport	自動でテレポートする
+Toggle whether to automatically teleport to a chosen node.	選んだ採集点へ、自動でテレポートします。
+Open Map With Location	地図を開いて場所を示す
+Toggle whether to automatically open the map of the territory of the chosen node with its gathering location highlighted.	選んだ採集点のエリアの地図を開き、採集場所を強調して示します。
+Place Flag Marker on Map	地図にフラグを立てる
+Toggle whether to automatically set a red flag marker on the approximate location of the chosen node without opening the map.	地図は開かずに、選んだ採集点のおおよその位置へ赤いフラグを立てます。
+Place Custom Waymarks	自分で決めたフィールドマーカーを置く
+Toggle whether to place custom Waymarks you set manually set up for certain locations.	場所ごとに自分で設定しておいたフィールドマーカーを置きます。
+Prefer Cheaper Aetherytes	安いエーテライトを優先
+Prefer Less Travel Time	移動時間が短いほうを優先
+Specify whether you prefer aetherytes that are closer to your target (less travel time) or aetherytes that are cheaper to teleport to when scanning through all available nodes for an item. Only matters if the item is not timed and has multiple sources.	品の採集点をすべて調べるとき、目的地に近い（移動時間が短い）エーテライトと、\nテレポート代が安いエーテライトのどちらを優先するかを選びます。\n時限ではない品で、採れる場所が複数あるときだけ関係します。\n※（GBRHelper の補足）自動採集で採集点を選ぶときにも使われます。
+Skip Nearby Teleports	近ければテレポートしない
+Skips teleports if you are in the same map and closer to the target than the selected aetheryte already.	すでに同じ地図にいて、選ばれたエーテライトより目的地に近いなら、テレポートを省きます。
+Add In-Game Context Menus	ゲーム内の右クリックメニューに追加
+Add a 'Gather' entry to in-game right-click context menus for gatherable items.	採集できるアイテムのゲーム内の右クリックメニューに、「Gather」を加えます。\n※（GBRHelper の補足）実際に加わるのは「Gather Manually」（その品を /gather する）と「Add to Auto-Gather List」（いま選んでいる自動採集リストに足す。魚には出ません）で、ゲームのメニューなので英語のままです。OFF にすると、Vulcan の項目も出なくなります。
+
+# ======================================================================
+# 設定タブ：一般 › 装備セットの名前
+Miner Set	採掘師のセット名	built
+Botanist Set	園芸師のセット名	built
+Fisher Set	漁師のセット名	built
+Set the name of your miner set. Can also be the numerical id instead.	採掘師の装備セットの名前を入れます。番号でもかまいません。\n※（GBRHelper の補足）実際は番号では探しません。採掘師の装備セットのうち名前が完全に一致するものに着替え、無ければ採掘師の最初の装備セットに着替えます。	built
+Set the name of your botanist set. Can also be the numerical id instead.	園芸師の装備セットの名前を入れます。番号でもかまいません。\n※（GBRHelper の補足）実際は番号では探しません。園芸師の装備セットのうち名前が完全に一致するものに着替え、無ければ園芸師の最初の装備セットに着替えます。	built
+Set the name of your fisher set. Can also be the numerical id instead.	漁師の装備セットの名前を入れます。番号でもかまいません。\n※（GBRHelper の補足）実際は番号では探しません。漁師の装備セットのうち名前が完全に一致するものに着替え、無ければ漁師の最初の装備セットに着替えます。	built
+
+# ======================================================================
+# 設定タブ：一般 › アラーム
+Enable Alarms	アラームを使う
+Toggle all alarms on or off.	すべてのアラームの ON / OFF を切り替えます。
+Enable Alarms in Duty	コンテンツ中も鳴らす
+Set whether alarms should trigger while you are bound by a duty.	コンテンツに参加している間も、アラームを鳴らすかどうかです。
+Enable Alarms Only In-Game	ゲームにログインしている間だけ鳴らす
+Set whether alarms should trigger while you are not logged into any character.	キャラクターにログインしていない間もアラームを鳴らすかどうかです。\n※（GBRHelper の補足）実際の動きは「ON＝ログイン中だけ鳴らす」です。
+Weather Change Alarm	天候が変わるときの音
+Choose a sound that is played every 8 Eorzea hours on regular weather changes.	エオルゼア時間で 8 時間ごとの、天候の切り替わりで鳴らす音を選びます。
+Eorzea Hour Change Alarm	エオルゼア時間の「時」が変わるときの音
+Choose a sound that is played every time the current Eorzea hour changes.	エオルゼア時間の「時」が変わるたびに鳴らす音を選びます。
+# 効果音の選択欄の候補（GatherBuddy/Gui/Interface.AlarmTab.cs の SoundIdNames。選択欄の getter を包んで訳す）
+No Sound	音なし
+Sound {0}	効果音 {0}
+
+# ======================================================================
+# 設定タブ：一般 › メッセージ
+Chat Type for Messages	通常のメッセージを出すチャット
+The chat type used to print regular messages issued by GatherBuddy.\nNote that the message only gets printed to your chat log, regardless of the selected channel - other people will not see your 'Say' message.	GatherBuddy の通常のメッセージを出すチャットの種類です。\nどれを選んでも自分のチャットログに出るだけで、ほかの人には見えません（Say を選んでも周りには聞こえません）。
+Chat Type for Errors	エラーを出すチャット
+The chat type used to print error messages issued by GatherBuddy.\nNote that the message only gets printed to your chat log, regardless of the selected channel - other people will not see your 'Say' message.	GatherBuddy のエラーを出すチャットの種類です。\nどれを選んでも自分のチャットログに出るだけで、ほかの人には見えません（Say を選んでも周りには聞こえません）。
+# チャットの種類（Dalamud の XivChatType の名前）。日本語クライアントの正式な表示名は確かめていないので、英語を併記する。
+Echo	エコー（Echo）	enum
+ErrorMessage	エラーメッセージ（ErrorMessage）	enum
+SystemMessage	システムメッセージ（SystemMessage）	enum
+SystemError	システムエラー（SystemError）	enum
+GatheringSystemMessage	採集のシステムメッセージ（GatheringSystemMessage）	enum
+Print Map Location	地図の場所をチャットに出す
+Toggle whether to automatically write a map link to the approximate location of the chosen node to chat.	選んだ採集点のおおよその位置を、地図のリンクにしてチャットに書きます。
+Print Node Uptimes On Gather	/gather のとき出現時間を出す
+Print the uptimes of nodes you try to /gather in the chat if they are not always up.	/gather した採集点が常時出ているものでなければ、出現時間をチャットに出します。
+Print Clipboard Information	クリップボードへの保存を知らせる
+Print to the chat whenever you save an object to the clipboard. Failures will be printed regardless.	何かをクリップボードへ保存するたびに、チャットで知らせます。失敗は設定に関係なく知らせます。
+Alarm Chat Format	アラームの文面
+Keep empty to have no chat output.\nCan replace:\n- {Alarm} with the alarm name in brackets.\n- {Item} with the item link.\n- {Offset} with the alarm offset in seconds.\n- {DurationString} with 'will be up for the next ...' or 'is currently up for ...'.\n- {Location} with the map flag link and location name.	空にするとチャットに出しません。\n置き換わる語：\n- {Alarm}：アラーム名（かっこ付き）\n- {Item}：アイテムのリンク\n- {Offset}：アラームの前倒しの秒数\n- {DurationString}：「これから…の間出る」または「いま…出ている」\n- {Location}：地図のフラグのリンクと場所の名前\n※（GBRHelper の補足）実際に置き換わるのは {DurationString} ではなく {DelayString} で、「will be up in …」（あと…で出る）か「will be up for the next …」（これから…の間出ている）が英語のまま入ります。
+Identified Gatherable Chat Format	見つけた品の文面
+Keep empty to have no chat output.\nCan replace:\n- {Input} with the entered search text.\n- {Item} with the item link.	空にするとチャットに出しません。\n置き換わる語：\n- {Input}：打ち込んだ検索語\n- {Item}：アイテムのリンク
+
+# ======================================================================
+# 設定タブ：画面表示 › メイン画面
+Open Config UI On Start	起動時に GBR の画面を開く
+Toggle whether the GatherBuddy GUI should be visible after you start the game.	ゲームを始めたあと、GatherBuddy の画面を表示するかどうかです。
+Escape Closes Main Window	Esc でメイン画面を閉じる
+Toggle whether pressing escape while having the main window focused shall close it.	メイン画面を選んでいるとき、Esc キーで閉じるかどうかです。
+Lock Config UI Movement	画面の位置を固定
+Toggle whether the GatherBuddy GUI movement should be locked.	GatherBuddy の画面を動かせなくするかどうかです。
+Lock Config UI Size	画面の大きさを固定
+Toggle whether the GatherBuddy GUI size should be locked.	GatherBuddy の画面の大きさを変えられなくするかどうかです。
+Show Names in Weather Tab	天候タブに天候の名前を書く
+Toggle whether to write the names in the table for the weather tab, or just the icons with names on hover.	天候タブの表に名前を書くか、アイコンだけにする（名前はマウスを乗せると出る）かを選びます。
+Show Status Line	状態の行を出す
+Show a status line below the gatherables and fish tables.	採集品・魚の表の下に、状態の行を出します。
+Hide GatherClippy Button	表の使い方ボタン（GatherClippy）を隠す
+Permanently hide the GatherClippy Button in the Gatherables and Fish tabs.	「採集品」タブと「魚」タブの表の右下にある「見つからないときは？」ボタン（表の使い方の説明を開く GatherClippy）を、ずっと隠します。
+Hotkey to Open Main Interface	メイン画面を開くキー
+Set a hotkey to open the main GatherBuddy interface.	GatherBuddy のメイン画面を開くキーを決めます。
+Upcoming Windows Uptime Count	この先の出現時間を何件出すか
+The number of gathering window in the upcoming windows uptime tooltip/pop-up.	「この先の出現時間」の吹き出し・小窓に出す件数です。
+# キーの選択欄（ElliLib の部品）
+Modifier	同時に押すキー
+Set an optional modifier key to be used in conjunction with the selected hotkey.	選んだキーと一緒に押すキーを、必要なら決めます。
+Additional Modifier	さらに同時に押すキー
+Set another optional modifier key to be used in conjunction with the selected hotkey and the first modifier.	選んだキー・1 つ目の同時に押すキーと一緒に押すキーを、必要ならもう 1 つ決めます。
+Set another optional modifier key to be used in conjunction with the first modifier.	1 つ目の同時に押すキーと一緒に押すキーを、必要ならもう 1 つ決めます。
+
+# ======================================================================
+# 設定タブ：画面表示 › 釣りタイマー
+Keep Fish Records	釣果記録を残す
+Store Fish Records on your computer. This is necessary for bite timings for the fish timer window.	釣果記録をパソコンに保存します。釣りタイマーで当たりの時間を出すのに必要です。
+Use Local Time in Records	記録の時刻をふつうの時刻で出す
+When displaying timestamps in the Fish Records Tab, use local time instead of Unix time.	釣果記録タブで、時刻を Unix 時間（数字の羅列）ではなく、このパソコンの時刻で出します。
+Show Fish Timer	釣りタイマーを出す
+Toggle whether to show the fish timer window while fishing.	釣っている間、釣りタイマーの窓を出すかどうかです。
+Edit Fish Timer	釣りタイマーを動かせるようにする
+Enable editing the fish timer window.	釣りタイマーの窓の位置や大きさを変えられるようにします。\n※（GBRHelper の補足）ON の間は、釣っていなくても釣りタイマーの窓が出たままになります（入れ直した直後は ON）。置き場所を決めたら OFF にしてください。/gbc edit でも切り替えられます。
+Enable Fish Timer Clickthrough	釣りタイマーをクリックが通り抜けるようにする
+Allow clicking through the fish timer and disabling the context menus instead.	釣りタイマーの上をクリックしても、下のゲーム画面に届くようにします。代わりに右クリックメニューは使えなくなります。
+Hide Uncaught Fish in Fish Timer	いまの餌で記録の無い魚を隠す
+Hide all fish from the fish timer window that have not been recorded with the given combination of snagging and bait.	いまの「引掛釣り」と餌の組み合わせで記録されたことのない魚を、釣りタイマーから隠します。
+Hide Unavailable Fish in Fish Timer	いま釣れない魚を隠す
+Hide all fish from the fish timer window that have have known requirements that are unfulfilled, like Fisher's Intuition or Snagging.	「漁師の直感」や「引掛釣り」など、条件が分かっていて満たしていない魚を、釣りタイマーから隠します。
+Show Uptimes in Fish Timer	釣りタイマーに出現時間を出す
+Show the uptimes for restricted fish in the fish timer window.	時間や天候の決まりがある魚の出現時間を、釣りタイマーに出します。
+Fish Timer Bite Time Scale	当たり時間の目盛りの長さ
+%2.3f Seconds	%2.3f 秒
+The fishing timer window bite times are scaled to this value.\nIf your bite time exceeds the value, the progress bar and bite windows will not be displayed.\nYou should probably keep this as high as your highest bite window and as low as possible. About 40 seconds is usually enough.	釣りタイマーの当たり時間の表示を、この秒数に合わせて縮めます。\n当たりまでの時間がこれを超えると、進み具合の線と当たりの時間帯は出ません。\n一番長い当たりの時間帯より長く、かつなるべく短くするとよいでしょう。たいてい 40 秒くらいで足ります。
+Fish Timer Interval Separators	区切り線の本数
+The fishing timer window can show a number of interval lines and corresponding seconds between 0 and 16.\nSet to 0 to turn this feature off.	釣りタイマーに、0〜16 本の区切り線とその秒数を出せます。\n0 にすると出しません。
+Fish Timer Interval Rounding	秒数の小数点以下の桁数
+Round the displayed second value to this number of digits past the decimal. \nSet to 0 to display only whole numbers.	出す秒数を、小数点以下この桁で丸めます。\n0 にすると整数だけを出します。
+Hide Catch Popup	ゲームの釣果表示を出さない
+Prevents the popup window that shows you your caught fish and its size, amount and quality from being shown.	魚を釣ったときにゲームが出す、釣った魚とその大きさ・数・品質の表示を、出さないようにします。
+Show Collectable Hints	収集品の印を出す
+Show if a fish is collectable in the fish timer window.	釣りタイマーで、その魚が収集品かどうかを示します。
+Show Multi Hook Hints	ダブル・トリプルフッキングの印を出す
+Show if a fish can be double or triple hooked in Cosmic Exploration and Ocean Fishing	コスモエクスプローラーとオーシャンフィッシングで、その魚がダブルフッキング・トリプルフッキングできるかを示します
+
+# ======================================================================
+# 設定タブ：画面表示 › 釣果の集計
+Enable Fish Stats	釣果の集計を使う
+New tab for aggregating and reporting fish stats based on local records. Currently in testing.	手元の記録から釣果を集計・報告する新しいタブを出します。試験中の機能です。
+Copy Time Stats when reporting.	報告に時間の集計を入れる
+When copying the report, add min and max times to the report.	報告をコピーするとき、最短・最長の時間を加えます。
+Copy Sizes Stats when reporting.	報告に大きさの集計を入れる
+When copying the report, add min and max sizes to the report.	報告をコピーするとき、最小・最大の大きさを加えます。
+Copy Multi Hook Stats when reporting.	報告にダブル・トリプルフッキングの集計を入れる
+When copying the report, add stats about multi-hook yields to the report.	報告をコピーするとき、ダブル・トリプルフッキングで釣れた数の集計を加えます。
+Enable Graphs.	グラフを出す
+When viewing a fishing spot, enable visualization of fish report data. Extreme Testing!	釣り場を見ているとき、報告のデータをグラフにします。かなり試験的です！
+
+# ======================================================================
+# 設定タブ：画面表示 › 採集小窓
+Show Gather Window	採集小窓を出す
+Show a small window with pinned Gatherables and their uptimes.	登録した採集品とその出現時間を載せた小窓を出します。
+Anchor Gather Window to Bottom Left	左下を基準にする
+Lets the Gather Window grow to the top and shrink from the top instead of the bottom.	採集小窓が、下ではなく上へ伸び縮みするようにします。
+Show Gather Window Timers	出現時間を出す
+Show the uptimes for gatherables in the gather window.	採集小窓に、採集品の出現時間を出します。
+Show Active Alarms in Gather Window	有効なアラームも出す
+Additionally show active alarms as a last gather window preset, obeying the regular rules for the window.	有効なアラームを、採集小窓の最後のまとまりとして一緒に出します（小窓のほかの決まりに従います）。
+Sort Gather Window by Uptime	出現時間の順に並べる
+Sort the items selected for the gather window by their uptimes.	採集小窓の品を、出現時間の順に並べます。
+Show Only Available Items	いま採れる品だけ出す
+Show only those items from your gather window setup that are currently available.	採集小窓の品のうち、いま採れるものだけを出します。
+Hide Completed Items	目標数に届いた品を隠す
+Hide items that have the required inventory amount present in inventory.	必要な数を所持している品を隠します。
+Hide Gather Window in Duty	コンテンツ中は隠す
+Hide the gather window when bound by any duty.	コンテンツに参加している間は、採集小窓を隠します。
+Only Show Gather Window if Holding Key	キーを押している間だけ出す
+Only show the gather window if you are holding your selected key.	選んだキーを押している間だけ、採集小窓を出します。
+Hotkey to Hold	押し続けるキー
+Set the hotkey to hold to keep the window visible.	採集小窓を出し続けるために押すキーを決めます。
+Lock Gather Window Position	採集小窓の位置を固定
+Prevent moving the gather window by dragging it around.	ドラッグで採集小窓を動かせないようにします。
+Hotkey to Open Gather Window	採集小窓を開くキー
+Set a hotkey to open the Gather Window.	採集小窓を開くキーを決めます。
+Modifier to Delete Items on Right-Click	右クリックで消すときのキー
+Set the modifier key to be used while right-clicking items in the gather window to delete them.	採集小窓の品を右クリックで消すとき、一緒に押すキーを決めます。
+
+# ======================================================================
+# 設定タブ：画面表示 › 刺突漁
+Show Spearfishing Helper	刺突漁の補助表示を出す
+Toggle whether to show the Spearfishing Helper while spearfishing.	刺突漁の最中に、補助表示を出すかどうかです。
+Show Fish Name Overlay	魚の名前を重ねて出す
+Toggle whether to show the identified names of fish in the spearfishing window.	刺突漁の画面で、見分けた魚の名前を出すかどうかです。
+Show List of Available Fish	獲れる魚の一覧を出す
+Toggle whether to show the list of fish available in your current spearfishing spot on the side of the spearfishing window.	いまの漁場で獲れる魚の一覧を、刺突漁の画面の横に出すかどうかです。
+Show Speed of Fish in Overlay	魚の速さも出す
+Toggle whether to show the speed of fish in the spearfishing window in addition to their names.	刺突漁の画面で、魚の名前に加えて速さも出すかどうかです。
+Show Center Line	中央線を出す
+Toggle whether to show a straight line up from the center of the spearfishing gig in the spearfishing window.	刺突漁の画面で、銛の中心から真上へまっすぐな線を引くかどうかです。
+Show Speed and Size as Text	速さと大きさを文字で出す
+Toggle whether to show the speed and size of available fish as text instead of icons.	獲れる魚の速さと大きさを、アイコンではなく文字で出すかどうかです。
+Show Fish Names in Fixed Position	魚の名前を決まった位置に出す
+Toggle whether to show the identified names of fish on the moving fish themselves or in a fixed position.	見分けた魚の名前を、動く魚の上に出すか、決まった位置に出すかを選びます。
+Fish Name Position Percentage	名前を出す位置（％）
+
+# ======================================================================
+# 設定タブ：色（名前と説明は GatherBuddy/Config/ColorId.cs）
+# 「Default」は色を戻すボタンと、採集プリセットの既定のプリセットの名前の両方に使われる。どちらにも合う訳にする。
+Default	既定
+Reset this color to {0}.	この色を {0} に戻します。
+Reset this color to {0} ({1}).	この色を {0}（{1}）に戻します。
+{0} - {1}\nRight-click to clear.	{0} - {1}\n右クリックで消します。
+Interface Available Items	画面：常時、またはいま採れる品
+Items that are always or currently available.	常時、またはいま採れる品です。
+Interface Upcoming Items	画面：いまは採れない品
+Items that are not currently available.	いまは採れない品です。
+Interface Dependent Available Fish	画面：条件付きでいま釣れる魚
+Fish that are currently available based on their own conditions, but require intuition or mooches that have other requirements.	自分の条件ではいま釣れるが、漁師の直感や泳がせ釣りの元になる魚に、別の条件がある魚です。
+Interface Dependent Upcoming Fish	画面：条件付きでいまは釣れない魚
+Fish that are not currently available based on their own conditions, but also require intuition or mooches that have other requirements.	自分の条件でもいまは釣れず、さらに漁師の直感や泳がせ釣りの元になる魚にも条件がある魚です。
+Interface Disabled Text	画面：使えない項目の文字
+Text for disabled objects in selectors.	選択欄の中の、使えない項目の文字です。
+Warning Background	警告の背景
+The background color of warning badges in the user interface.	画面の警告バッジの背景の色です。
+Custom Location Data Background	自分で設定した場所の背景
+The background of customly set aetherytes or coordinates for specific locations.	場所ごとに自分で設定したエーテライト・座標の背景です。
+Highlight Text	強調する文字
+Color used to highlight text under specific circumstances.	特定の場面で文字を目立たせる色です。
+Available Bait	持っている餌
+Color used to highlight bait in the fish window if you carry the bait in your inventory.	魚の窓で、所持品に持っている餌を目立たせる色です。
+Custom Fish Data	データを書き換えた魚
+Color used to highlight fish with custom overriden data in the fish table.	魚の表で、データを独自に書き換えた魚を目立たせる色です。
+Fish Timer Window Weak Tug	釣りタイマー：弱い当たり（!）
+Fish that bite with a weak tug (!).	弱い当たり（!）で掛かる魚です。
+Fish Timer Window Strong Tug	釣りタイマー：強い当たり（!!）
+Fish that bite with a strong tug (!!).	強い当たり（!!）で掛かる魚です。
+Fish Timer Window Legendary Tug (Precision Hookset)	釣りタイマー：強烈な当たり（!!!・プレシジョンフッキング）
+Fish that bite with a legendary tug (!!!) and require Precision Hookset if in Patience.	強烈な当たり（!!!）で掛かり、ペーシェンス中ならプレシジョンフッキングが要る魚です。
+Fish Timer Window Legendary Tug (Powerful Hookset)	釣りタイマー：強烈な当たり（!!!・ストロングフッキング）
+Fish that bite with a legendary tug (!!!) and require Powerful Hookset if in Patience.	強烈な当たり（!!!）で掛かり、ペーシェンス中ならストロングフッキングが要る魚です。
+Fish Timer Window Weak Tug (Uncaught)	釣りタイマー：弱い当たり（未記録）
+Fish that bite with a weak tug (!), but that were not caught with the current bait yet.	弱い当たり（!）で掛かるが、いまの餌ではまだ釣ったことがない魚です。
+Fish Timer Window Strong Tug (Uncaught)	釣りタイマー：強い当たり（未記録）
+Fish that bite with a strong tug (!!), but that were not caught with the current bait yet.	強い当たり（!!）で掛かるが、いまの餌ではまだ釣ったことがない魚です。
+Fish Timer Window Legendary Tug (Precision Hookset, Uncaught)	釣りタイマー：強烈な当たり（プレシジョンフッキング・未記録）
+Fish that bite with a legendary tug (!!!) and require Precision Hookset if in Patience, but that were not caught with the current bait yet.	強烈な当たり（!!!）で掛かり、ペーシェンス中ならプレシジョンフッキングが要るが、いまの餌ではまだ釣ったことがない魚です。
+Fish Timer Window Legendary Tug (Powerful Hookset, Uncaught)	釣りタイマー：強烈な当たり（ストロングフッキング・未記録）
+Fish that bite with a legendary tug (!!!) and require Powerful Hookset if in Patience, but that were not caught with the current bait yet.	強烈な当たり（!!!）で掛かり、ペーシェンス中ならストロングフッキングが要るが、いまの餌ではまだ釣ったことがない魚です。
+Fish Timer Window Unknown Tug	釣りタイマー：当たりの強さが分からない
+Fish that bite with an unknown tug.	当たりの強さが分からない魚です。
+Fish Timer Window Unavailable Fish	釣りタイマー：いま釣れない魚
+Fish that are currently unavailable due to their conditions.	条件のせいで、いまは釣れない魚です。
+Fish Timer Window Progress Bar	釣りタイマー：経過時間の線
+The straight line that indicates current time progress.	いまの経過時間を示す縦線です。
+Fish Timer Window Bite time Highlight Markers (Bait)	釣りタイマー：当たり時間帯の印（いまの餌）
+The two lines that indicate the beginning and end of the recorded bite window for a specific fish over your current bait.	いまの餌で記録された、その魚の当たり時間帯の始まりと終わりを示す 2 本の線です。
+Fish Timer Window Bite time Highlight Markers (Overall)	釣りタイマー：当たり時間帯の印（すべての餌）
+The two lines that indicate the beginning and end of the recorded bite window for a specific fish over all baits.	すべての餌で記録された、その魚の当たり時間帯の始まりと終わりを示す 2 本の線です。
+Fish Timer Window Text	釣りタイマー：文字
+Text in the fish timer window.	釣りタイマーの窓の文字です。
+Fish Timer Window Background	釣りタイマー：背景
+The background of the fish timer window.	釣りタイマーの窓の背景です。
+Fish Timer Window Lure Dead Zone Hatching	釣りタイマー：ルアーで釣れない時間の斜線
+Hatched block indicating time when fish may not be caught due to lure cooldown.	ルアーの待ち時間のせいで魚が釣れない時間を示す、斜線の範囲です。
+Header Eorzea Time Background	見出し：エオルゼア時間の背景
+The background of the Eorzea Time field in the main interface header.	メイン画面の見出しにある、エオルゼア時間の欄の背景です。
+Header Next Eorzea Hour Background	見出し：次の「時」までの背景
+The background of the Time to Next Eorzea Hour field in the main interface header.	メイン画面の見出しにある、次のエオルゼア時までの欄の背景です。
+Header Next Eorzea Background	見出し：次の天候までの背景
+The background of the Time to Next Weather field in the main interface header.	メイン画面の見出しにある、次の天候までの欄の背景です。
+Weather Tab Current Weather Column	天候タブ：いまの天候の列
+The background color of the cells depicting the current weather in the weather tab.	天候タブで、いまの天候を示すセルの背景の色です。
+Weather Tab Last Weather Column	天候タブ：ひとつ前の天候の列
+The background color of the cells depicting the last weather in the weather tab.	天候タブで、ひとつ前の天候を示すセルの背景の色です。
+Weather Tab Current Weather Header	天候タブ：いまの天候の見出し
+The background color of header cell depicting the starting time of the current weather in the weather tab.	天候タブで、いまの天候が始まった時刻を示す見出しの背景の色です。
+Weather Tab Last Weather Header	天候タブ：ひとつ前の天候の見出し
+The background color of header cell depicting the starting time of the last weather in the weather tab.	天候タブで、ひとつ前の天候が始まった時刻を示す見出しの背景の色です。
+Spearfish Helper Fish Background	刺突漁の補助表示：魚の名前の背景
+The background color of each fish name overlayed onto the moving fish in the spearfish helper.	刺突漁の補助表示で、動く魚に重ねた名前の背景の色です。
+Spearfish Helper List Background	刺突漁の補助表示：一覧の背景
+The background color of the list of available fish in the spearfish helper.	刺突漁の補助表示で、獲れる魚の一覧の背景の色です。
+Spearfish Helper Center Line	刺突漁の補助表示：中央線
+The color of the line straight up from the center of the spear.	銛の中心から真上へ引く線の色です。
+Spearfish Helper Fish Text	刺突漁の補助表示：魚の名前の文字
+The text color of each fish name overlayed onto the moving fish in the spearfish helper.	刺突漁の補助表示で、動く魚に重ねた名前の文字の色です。
+Gather Window Background	採集小窓：背景
+The background of the gather window.	採集小窓の背景です。
+Gather Window Text	採集小窓：常時採れる品の文字
+Color of always available items in the gather window.	採集小窓で、常時採れる品の文字の色です。
+Gather Window Available Item	採集小窓：いま採れる品の文字
+Color of currently but not always available items in the gather window.	採集小窓で、常時ではないがいま採れる品の文字の色です。
+Gather Window Upcoming Item	採集小窓：いまは採れない品の文字
+Color of currently unavailable items in the gather window.	採集小窓で、いまは採れない品の文字の色です。
+Names in Chat	チャット：名前の色
+Commands in Chat	チャット：コマンドの色
+Arguments in Chat	チャット：コマンドの引数の色
+Alarm Message in Chat	チャット：アラームの文の色
+
+# ======================================================================
+# 設定タブ：プラグインが入っているかの印（GatherBuddy/Gui/ImGuiEx.cs）
+The following plugins are required to be installed and enabled:	次のプラグインを導入して、有効にする必要があります：
+One of the following plugins is required to be installed and enabled	次のプラグインのどれか 1 つを導入して、有効にする必要があります
+(outdated)	（版が古い）
+(not installed)	（未導入か無効）
+
+# ======================================================================
+# 採集プリセットタブ（GatherBuddy/Gui/Interface.ConfigPresetsTab.cs）
+Export	クリップボードへ書き出す
+Check	確かめる
+Check what presets are used for items from the auto-gather list	自動採集リストの品に、どのプリセットが使われるかを確かめます
+Gather List	採集リスト
+Item	アイテム
+Config Preset	採集プリセット
+Close	閉じる
+Presets are checked against the current target item in order from top to bottom.\nOnly the first matched preset is used, the rest are ignored.\nThe Default preset is always last and is used if no other preset matches the item.	プリセットは、いま狙っている品に対して上から順に照らし合わせます。\n最初に合ったプリセットだけを使い、残りは無視します。\n「既定（Default）」のプリセットは常に最後で、ほかのどれにも合わないときに使われます。\n※（GBRHelper の補足）「品の種類」の「採集品」は、クリスタルでも収集品でもない品のことです。一覧で名前をダブルクリックすると有効・無効が切り替わり（灰色＝無効。無効のプリセットは照らし合わせません）、複製したプリセットは無効の状態で作られます。
+<Unnamed>	<名前なし>
+Enabled	有効
+Minimum and maximum item	品のレベルの範囲（最小〜最大）
+level	レベル
+Level as shown in the gathering log and the gathering window.	採集手帳や採集画面に出ているレベルです。
+glv	採集レベル（glv）
+Gathering level (hidden stat). Use it to distinguish between different tiers of legendary nodes.	採集レベル（画面に出ない値）です。伝説の採集場所の段階を見分けるのに使います。
+Node types:	採集点の種類：
+Regular	通常
+Unspoiled	未知
+Legendary	伝説
+Ephemeral	刻限
+Clouded	幻
+Item types:	品の種類：
+Crystals	クリスタル
+Collectables	収集品
+Gatherables	採集品
+Fish	魚
+General Settings	全般の設定
+Minimum GP for gathering regular items or crystals	収集品でない品・クリスタルを採り始めるのに要る GP（足りないと回復を待つ）
+Minimum GP for collecting collectables	収集品を採り始めるのに要る GP（足りないと回復を待つ）
+Minimum GP for using actions on collectables	収集品で集中検分・石工の理／老農の知を使う最低 GP（開始時の GP で判断）
+Always use {0}	常に {0} を使う
+Use {0} regardless of starting GP if the target collectability score is reached	目標の収集価値に届いたら、開始時の GP に関係なく {0} を使います
+Manually set collectability scores	収集価値を手で決める
+When disabled, collectability scores will be automatically detected from the game UI.\nWhen enabled, you can manually specify the target and minimum scores below.	OFF のとき：収集価値はゲームの画面から自動で読み取ります。\nON のとき：下で目標と最低の値を自分で決められます。
+Target collectability score to reach before collecting	採る前に目指す収集価値
+Minimum collectability score to collect at the last integrity point (set to {0} to disable)	耐久が残り 1 のときに採る最低の収集価値（{0} にすると使わない）
+Automatically decide what actions to use	使うアクションを自動で決める
+This setting works differently depending on item or node type.\nFor collectables: the usual collectable rotation is used with all actions enabled.\nFor unspoiled and legendary nodes: actions are chosen to maximise the yield.\nFor regular nodes: actions are chosen to maximise the yield per GP spent.\n	この設定は、品や採集点の種類によって動きが変わります。\n収集品：すべてのアクションを使う、いつもの収集品の手順で採ります。\n未知・伝説の採集場所：獲得数が一番多くなるようにアクションを選びます。\n通常の採集点：使った GP あたりの獲得数が一番多くなるようにアクションを選びます。\n
+Hold off spending GP until a node with the best bonuses	ボーナスが一番良い採集点まで GP を温存する
+This setting is for regular nodes only. When enabled, GP would be kept for nodes with bonuses\nthat would give the best possible yield per GP spent. Make sure that nodes with +2 integrity,\n+3 yield, and +100% boon chance hidden bonuses do exist, and you can meet their requirements.\nIt is ignored if {0} gives +3 bonus, because nothing can beat that.\nNot recommended if you have the Revisit trait (level 91+).	通常の採集点だけの設定です。ON にすると、使った GP あたりの獲得数が一番良くなる\nボーナスのある採集点まで GP を温存します。耐久＋2・獲得数＋3・獲得数ボーナス発生率＋100% の\n隠れたボーナスがある採集点が実在し、その条件を満たせることを確かめてください。\n{0} で＋3 になるときは無視します（それより良くはならないため）。\n特性「再発見」（Lv91 以上）があるなら、おすすめしません。
+Gathering Actions	採集のアクション
+Collectable Actions	収集品のアクション
+Fishing Actions	釣りのアクション
+Consumables	消耗品
+Patience / Patience II	ペーシェンス／ペーシェンスII
+Cordial	コーディアル
+Food	食事
+Medicine	薬
+Manual	マニュアル
+Squadron Manual	冒険者小隊のマニュアル（Squadron Manual）
+# 「Squadron Pass」の中身はアイテム 14954（Priority Aetheryte Pass＝転送網優先利用票。AutoGather.Consumables.cs）。
+Squadron Pass	転送網優先利用票（Squadron Pass）
+Use only on first step	最初の 1 回だけ使う
+Use only if no items have been gathered from the node yet	その採集点からまだ何も採っていないときだけ使います
+Minimum and maximum GP	GP の範囲（最小〜最大）
+Minimum and maximum boon chance	獲得数ボーナス発生率の範囲（最小〜最大）
+Minimum initial node integrity	採集点の最初の耐久の最低値
+Minimum yield bonus	増える獲得数の最低値（＋1〜＋3）
+Minimum total yield	1 回の獲得数の最低値
+Select cordial	コーディアルを選ぶ	built
+Select food	食事を選ぶ	built
+Select medicine	薬を選ぶ	built
+Select manual	マニュアルを選ぶ	built
+Select squadron manual	冒険者小隊のマニュアルを選ぶ	built
+Select squadron pass	転送網優先利用票を選ぶ	built
+Use when GP is Above	GP がこれより上のとき使う
+Below	下のとき
+GP Threshold	GP のしきい値
+# 一覧の部品（ElliLib の ItemSelector・ImGuiUtil）
+Add New	新しく作る
+Import from Clipboard	クリップボードから読み込む
+Duplicate Current Selection	選んでいるものを複製する
+Delete Current Selection. Hold Control while clicking.	選んでいるものを消します。Ctrl を押しながらクリックしてください。
+Filter...	絞り込み…
+Enter New Name...	新しい名前を入力…
+Reordering {0}...	{0} 番目を並べ替え中…
+
+# ======================================================================
+# デバッグタブ（GatherBuddy/Gui/Interface.DebugTab.cs）
+# 開発者向けの内部の値。見出し・ボタン・表の項目名と「項目: 値」の項目名を訳し、
+# 関数名・アドレス・内部の名前（IPC の関数名など）は英語のまま残す。
+Unknown	不明
+Set Weather Dirty	天候を計算し直す
+Set Locations Dirty	場所を計算し直す
+Populate Diadem List	ディアデムの採集リストを作る
+Test Enhanced Weather	拡張の天候を試す
+Set All Fish Unlocked	すべての魚を釣った扱いにする
+Time	時刻
+Framework Timestamp	Framework の時刻
+Framework Eorzea	Framework のエオルゼア時刻
+GatherBuddy TimeStamp	GatherBuddy の時刻
+GatherBuddy EorzeaTime	GatherBuddy のエオルゼア時刻
+Current Computed Weather	計算で求めたいまの天候
+Current True Weather	実際のいまの天候
+Enhanced Weather (ClientStructs)	拡張の天候（ClientStructs）
+None ({0})	なし（{0}）
+Fishing State	釣りの状態
+Remote Task State (Upload): {0}	送信の状態: {0}
+Force Cancellation	強制的に取り消す
+Current Save Changes	保存待ちの変更
+Next Timed Save	次の定期保存
+Never	なし
+UiState Address	UiState のアドレス
+FishingEventHandler Address	FishingEventHandler のアドレス
+Num SwimBait	泳がせ餌の数
+Selected SwimBait	選んでいる泳がせ餌
+SwimBait 1	泳がせ餌 1
+SwimBait 2	泳がせ餌 2
+SwimBait 3	泳がせ餌 3
+Bite Type Address	当たりの種類のアドレス
+Bite Type	当たりの種類
+Last Fishing State	前回の釣りの状態
+Current Step	いまの段階
+Gathering	採集
+Perception	技術力
+Start Time	開始時刻
+Current Spot	いまの釣り場
+Current Mission	いまのミッション
+Selected Bait	選んでいる餌
+Current Bait	いまの餌
+Duration	長さ
+BiteType	当たりの種類
+HookSet	フッキング
+Last Catch	前回の釣果
+Current Catch	いまの釣果
+{0} ({1} - {2}) - of size {3} times {4}	{0}（{1} - {2}）- 大きさ {3}・{4} 匹
+Fishing Times	釣りの時間
+Overall	全体
+Uptimes ({0})	出現時間（{0}）
+Invalid	無効
+Always	常時
+Dirty	更新待ち
+Next Change (Absolute)	次の変化（時刻）
+Next Change (Relative)	次の変化（あと）
+#Alarm Groups	アラームのまとまりの数
+#Enabled Alarms	有効なアラームの数
+Waymarks	フィールドマーカー	part
+Clear	消す
+Set	置く
+Ocean Routes	オーシャンフィッシングの航路	part
+Route	航路
+Area	海域
+Spot 1 Normal	釣り場 1（通常）
+Spot 1 Spectral	釣り場 1（幻海流）
+Spot 2 Normal	釣り場 2（通常）
+Spot 2 Spectral	釣り場 2（幻海流）
+Spot 3 Normal	釣り場 3（通常）
+Spot 3 Spectral	釣り場 3（幻海流）
+Spot 1	釣り場 1	part
+Spot 2	釣り場 2	part
+Spot 3	釣り場 3	part
+Cosmic Exploration Fishing Missions	コスモエクスプローラーの釣りミッション	part
+Choose Territory	エリアを選ぶ
+Choose Weather	天候を選ぶ
+Territory does not support this weather.	このエリアにはこの天候がありません。
+Choose Fish or Bait	魚か餌を選ぶ
+(Mooch)	（泳がせ釣り）
+Aetherytes ({0})	エーテライト（{0}）
+Name	名前
+Territory	エリア
+Coords	座標
+Territories ({0})	エリア（{0}）
+#Weathers	天候の数
+Weathers	天候
+Bait ({0})	餌（{0}）
+Gatherables ({0})	採集品（{0}）
+ItemId	アイテム ID
+GatheringId	採集 ID
+Level	レベル
+#Nodes	採集点の数
+Gathering Nodes ({0})	採集点（{0}）
+Job	職
+Type	種類
+Aetheryte	エーテライト
+Folklore	伝承録
+Times	時刻
+Items	品
+World Coords	ワールド座標
+Fish ({0})	魚（{0}）
+FishId	魚 ID
+Restrictions	条件
+InLog	手帳
+Big	ヌシ
+Fishing Spots	釣り場
+Fishing Spots ({0})	釣り場（{0}）
+Data	データ
+Shadow	魚影
+Fishes	魚
+Identify...	識別…
+Toggle	切り替える
+World Objects	ワールドの物体
+Gatherables within 200 yalms	200 ヤルム以内の採集点
+NavTo	ここへ移動
+Saved World Objects	保存したワールドの物体
+Saved Gatherables	保存した採集点
+AutoGather	自動採集
+Clear Timed Node Memory	時限の採集点の記憶を消す
+Enabled: {0}	有効: {0}
+Status: {0}	状態: {0}
+Current Destination: {0}	いまの目的地: {0}
+IsGathering: {0}	採集中: {0}
+IsPathing: {0}	経路を移動中: {0}
+IsPathGenerating: {0}	経路を計算中: {0}
+NavReady: {0}	移動の準備ができた: {0}
+CanAct: {0}	行動できる: {0}
+BlacklistedNodes: {0}	除外した採集点のあるエリアの数: {0}
+ItemsToGatherInZone: {0}	このエリアで採る品: {0}
+ItemsToGather: {0}	採る品: {0}
+ShouldUseFlag: {0}	地図の印を使う: {0}
+LastIntegrity: {0}	前回の耐久: {0}
+LastCollectScore: {0}	前回の収集価値: {0}
+IsCordialOnCooldown: {0}	コーディアルのリキャスト中: {0}
+IsManualBuffUp: {0}	マニュアルの効果中: {0}
+SortingMethodType: {0}	並べ方: {0}
+Min collectability: {0} {1}	最低の収集価値: {0} {1}
+Med collectability: {0} {1}	中間の収集価値: {0} {1}
+Max collectability: {0} {1}	最高の収集価値: {0} {1}
+Timed Node Memory	時限の採集点の記憶
+Visited Nodes	行った採集点
+Far Nodes Seen So Far	これまでに見た遠くの採集点
+Items to Gather	採る品
+Item: {0}; Location: {1}; Valid until: {2} ET; Quantity: {3}	品: {0}; 場所: {1}; 有効期限: ET {2}; 数: {3}
+Mark Visited	行った印を付ける	part
+Gather Window Reader	採集画面の読み取り
+# 「Gather Window Reader」の中身（Touched・Slot など）は、GBR が複数行を 1 つの文にまとめて一度に描くので、行ごとの型では正しく当たらない（当たると英語混じりに崩れる）。2026-10-05 に型を外した。
+Not ready	準備ができていません
+Reflection	リフレクション
+Artisan Assembly Enabled: {0}	Artisan のアセンブリ: {0}
+Artisan Instance: {0}	Artisan の本体: {0}
+Start ID: {0}	開始 ID: {0}
+End ID: {0}	終了 ID: {0}
+Copy Most Recent Unknown Fish Data	最新の未知の魚のデータをコピーする
+# デバッグタブの最後の表（GatherBuddy/AutoGather/AutoGather.Ui.cs の DrawDebugTables）
+Import Node Offsets from Clipboard	採集点の着地点をクリップボードから読み込む
+Export Node Offsets to Clipboard	採集点の着地点をクリップボードへ書き出す
+Targetable	選べる
+NodeId	採集点 ID
+Position	位置
+Distance	距離
+Auto Offsets	自動の着地点
+Action	操作
+Unblacklist	除外をやめる	part
+Blacklist	除外する	part
+Navigate	移動する	part
+Remove Offset	着地点を消す	part
+Navigate to Offset	着地点へ移動する	part
+Add Offset	着地点を足す	part
+
+# ======================================================================
+# メイン画面の上の見出し（GatherBuddy/Gui/Interface.Header.cs。どのタブでも出る）
+No Item Alarm Triggered	まだアイテムのアラームは鳴っていません
+No Fish Alarm Triggered	まだ魚のアラームは鳴っていません
+Click to /gather this alarm.	クリックで、このアラームの品を /gather します。
+Click to /gather this alarm.\n{0} - {1}\n{2}\n{3}	クリックで、このアラームの品を /gather します。\n{0} - {1}\n{2}\n{3}
+Open the Vulcan crafting window.	Vulcan（製作）の窓を開きます。
+Open the collectables window.	収集品の窓を開きます。
+If this does not correspond to your in-game Eorzea Time, verify that your windows system time is accurate.	ゲーム内のエオルゼア時間と合わないときは、Windows の時計が正しいか確かめてください。
+Next Aldenard Ocean Routes:	次のオーシャンフィッシングの航路（メルトール海峡・ロータノ海・緋汐海・ロズリト湾 行き）：
+Next Othard Ocean Routes:	次のオーシャンフィッシングの航路（オサード：無二江・紅玉海・サベネア島 行き）：
+{0}:{1} Min to next hour.	次の「時」まで {0}:{1}
+# 次の天候までの残り時間（枠の幅も同じ文字列を測って決めるので、訳しても枠はずれない）
+  {0}:{1} Min.  	  あと {0}:{1}
+
+# ======================================================================
+# 2026-10-05 追加（下書き A）：採集品・魚・天候・場所の各タブと共通部品（UiHelpers・右クリックメニュー・ElliLib の表の部品）。
+# GBR 7.5.6.1 のソースで各文字の動きを確かめて訳した。パッチ名・時間の書式は GatherBuddy.GameData.dll の文字。
+
+# ======================================================================
+# タブ名と、タブに乗せたときの説明（Gatherables・Fish のタブ名は既存）
+# Interface.WeatherTab.cs・Interface.LocationsTab.cs・Interface.ItemTab.cs・Interface.FishTab.cs
+Weather	天候
+Locations	場所
+Breaking rocks with a pickaxe or felling trees counts as gathering, why do you ask?\nFind all information about botanist and miner items you could ever need.	つるはしで岩を砕くのも、木を切り倒すのも採集です。それが何か？\n採掘師・園芸師の品について、知りたいことが全部そろっています。
+There are plenty of fish in the sea. And the air. And the sand. And the lava. And space, for some reason.\n Gotta catch'em all!\nEnough information about fish to get you started, and for everything else there's TeamCraft!	魚は海にたくさんいます。空にも、砂にも、溶岩にも。なぜか宇宙にも。\n 全部釣りあげよう！\n始めるのに足りるだけの魚の情報があります。それ以外は TeamCraft でどうぞ！
+# 'Gloom' は天候の名前（ゲームデータの Weather 17・27 の日本語名は「妖霧」）
+Yes, 'Gloom' is weather.\nSee the weather forecast in all zones for the following days, as well as the last one.	そう、「妖霧」も天候です。\nすべてのエリアの天候を、ひとつ前の天候から数日先まで見られます。
+Default locations getting you down?\nSet up custom aetherytes or map marker locations for specific nodes.	最初から決まっている場所が不便ですか？\n採集点ごとに、使うエーテライトや地図の印の位置を自分で決められます。
+
+# ======================================================================
+# 表の部品（ElliLib.Table：ColumnFlags の絞り込みの選択欄。GBR の ItemTab の ItemValueFilterColumn も同じ文字）
+# 列の見出しは「選択欄（ボタン）・入力欄のヒント」として描かれ、同じ名前が igTableSetupColumn で表の右クリックメニュー（列を隠す）にも出る。
+# この 2 行は draft_B にも同じ英語がある（訳は B に揃えた。統合のときはどちらか一方を消す）。
+Right-click to clear filters.	右クリックで絞り込みを解除します。
+Enable All	すべて ON
+
+# ======================================================================
+# 採集品タブ：列の見出し（Interface.ItemTab.cs）
+# 「Gathering」（採掘・砕岩・伐採・草刈の列）は既存の訳「獲得力」と衝突するので、draft_A_既存の変更案.tsv に回した。
+Item Name...	アイテム名…
+# 手帳の列：採集品は採集手帳、魚は釣り手帳に載ったか（同じ英語なので両方に合う「手帳」）
+Log	手帳
+# 「Leveling」の印は、採集点の GatheringSubCategory に必要な品（伝承録）が無いこと（Node.Base.cs の IsLeveling）。動きに合わせて言い換えた。
+Leveling	伝承録不要
+Next Uptime	次の出現
+Lvl	レベル
+Node Type	採集点の種類
+Exp.	拡張
+Uptimes	出現時間
+Best Node	最適な採集点
+Best Zone	最適なエリア
+Item Id	アイテム ID
+# G. Id：採集品タブは GatheringItem の番号、魚タブは魚の番号（FishId）
+G. Id	採集 ID
+
+# 採集品タブ：絞り込みの選択肢
+Non-Leveling	伝承録が必要
+Already Gathered	採集済み
+Ungathered	未採集
+# 収集品・宝の地図・マーケットに出せない品などは採集手帳の対象外（ExtendedGatherable.NotTrackedByGatheringLog）
+Not Tracked	採集手帳の対象外
+Log State Unavailable	採集手帳の状態を読めない
+# 「次の出現」の絞り込み（採集品・魚の両タブで同じ英語）
+Currently Available	いま出現中
+Currently Unavailable	いまは出現していない
+# 拡張の絞り込み（パッチの吹き出しの x.0 の名前にも同じ英語が出る）
+A Realm Reborn	新生エオルゼア
+Heavensward	蒼天のイシュガルド
+Stormblood	紅蓮のリベレーター
+Shadowbringers	漆黒のヴィランズ
+Endwalker	暁月のフィナーレ
+Dawntrail	黄金のレガシー
+No Folklore	伝承録なし
+
+# 採集品タブ：表の中身
+# 拡張の列の略（Interface.ItemTab.ExtendedGatherable.cs）。列の幅は見出し「拡張」の幅なので 2 文字に収めた。
+ARR	新生
+HW	蒼天
+SB	紅蓮
+ShB	漆黒
+EW	暁月
+DT	黄金
+Unk	不明
+# 採集の種類（GatheringType・ItemFilter・JobFlags の名前を ToString() でそのまま出す。採集品タブ・場所タブの列と絞り込み）
+Mining	採掘	enum
+Quarrying	砕岩	enum
+Logging	伐採	enum
+Harvesting	草刈	enum
+Fisher	漁師	enum
+Multiple	複数	enum
+
+# ======================================================================
+# 魚タブ：列の見出し（Interface.FishTab.cs）
+# 「Up%」の列の幅は「999.9%」の幅で決まり、見出しが 2 文字を超えると切れるので「出現」にした（中身は 12.5% のような出現率）。
+Up%	出現
+Bait...	餌…
+Aetheryte...	エーテライト…
+# 「Fish Type」の列の幅は「Spearfishing」（訳は「刺突漁」）の幅で決まるので、見出し・中身とも 3 文字以内にした。
+Fish Type	種類
+Coll.	収集品
+Patch	パッチ
+Folklore...	伝承録…
+Best Spot...	最適な釣り場…
+Best Zone...	最適なエリア…
+
+# 魚タブ：絞り込みの選択肢と表の中身
+Already Caught	釣ったことがある
+Uncaught	まだ釣っていない
+# 釣り手帳に載らない魚（FishParameter の IsInLog が 0）
+Not In Log	手帳に載らない
+# 泳がせ釣りの元の魚や、漁師の直感のための魚に、自分とは別の時間・天候の条件がある魚（ExtendedFish.SetUptimeDependency）
+Dependent On Other Restrictions	ほかの魚の条件にも左右される
+# 魚の種類（絞り込みの選択肢と、列の中身の両方に出る）。ヌシはゲームデータの Addon 14377（Big Fish＝ヌシ）。
+Regular Fish	通常
+Big Fish	ヌシ
+Oceanfishing	オーシャンフィッシング
+# 列の中身だけに出る（幅が 3 文字分しか無いため短くした）
+Ocean Fish	海釣り
+# 「Collectible」は draft_B にも同じ英語・同じ訳がある（釣果記録の効果の吹き出し）。統合のときはどちらか一方を消す。
+Collectible	収集品
+Not Collectible	収集品でない
+Dependent on Time of Day	時間帯の条件あり
+Dependent on Weather	天候の条件あり
+No Dependencies	条件なし
+
+# 魚タブ：パッチの絞り込みの選択肢（「版 - パッチ名」。FishTab の PatchColumn が組み立てる）
+# パッチ名の日本語は公式の題（Wikipedia の一覧と GAME Watch・4Gamer・ファミ通・gamebiz・電撃の記事で確認。ルビは省いた）。
+2.0 - A Realm Reborn	2.0 - 新生エオルゼア	built
+2.1 - A Realm Awoken	2.1 - 覚醒せし者たち	built
+2.2 - Through The Maelstrom	2.2 - 混沌の渦動	built
+2.3 - Defenders Of Eorzea	2.3 - エオルゼアの守護者	built
+2.4 - Dreams Of Ice	2.4 - 氷結の幻想	built
+2.5 - Before The Fall	2.5 - 希望の灯火	built
+3.0 - Heavensward	3.0 - 蒼天のイシュガルド	built
+3.1 - As Goes Light, So Goes Darkness	3.1 - 光と闇の境界	built
+3.2 - The Gears Of Change	3.2 - 運命の歯車	built
+3.3 - Revenge Of The Horde	3.3 - 最期の咆哮	built
+3.4 - Soul Surrender	3.4 - 魂を継ぐ者	built
+3.5 - The Far Edge Of Fate	3.5 - 宿命の果て	built
+4.0 - Stormblood	4.0 - 紅蓮のリベレーター	built
+4.1 - The Legend Returns	4.1 - 英雄の帰還	built
+4.2 - Rise Of A New Sun	4.2 - 暁光の刻	built
+4.3 - Under The Moonlight	4.3 - 月下の華	built
+4.4 - Prelude In Violet	4.4 - 狂乱の前奏曲	built
+4.5 - A Requiem For Heroes	4.5 - 英雄への鎮魂歌	built
+5.0 - Shadowbringers	5.0 - 漆黒のヴィランズ	built
+5.1 - Vows Of Virtue, Deeds Of Cruelty	5.1 - 白き誓約、黒き密約	built
+5.2 - Echoes Of A Fallen Star	5.2 - 追憶の凶星	built
+5.3 - Reflections In Crystal	5.3 - クリスタルの残光	built
+5.4 - Futures Rewritten	5.4 - もうひとつの未来	built
+5.5 - Death Unto Dawn	5.5 - 黎明の死闘	built
+6.0 - Endwalker	6.0 - 暁月のフィナーレ	built
+6.1 - Newfound Adventure	6.1 - 新たなる冒険	built
+6.2 - Buried Memory	6.2 - 禁断の記憶	built
+6.3 - Gods Revel, Lands Tremble	6.3 - 天の祝祭、地の鳴動	built
+6.4 - The Dark Throne	6.4 - 玉座の咎人	built
+6.5 - Growing Light	6.5 - 光明の起点	built
+7.0 - Dawntrail	7.0 - 黄金のレガシー	built
+7.1 - Crossroads	7.1 - 未知との邂逅	built
+7.2 - Seekers of Eternity	7.2 - 永久の探求者	built
+7.3 - The Promise of Tomorrow	7.3 - 明日への道標	built
+7.4 - Into the Mist	7.4 - 霧の中の理想郷	built
+7.5 - Trail to the Heavens	7.5 - 彼方に至る路	built
+# パッチの列に乗せたときの吹き出し（パッチ名だけ。x.0 の名前は上の拡張の行と同じ英語なので書かない）
+A Realm Awoken	覚醒せし者たち
+Through The Maelstrom	混沌の渦動
+Defenders Of Eorzea	エオルゼアの守護者
+Dreams Of Ice	氷結の幻想
+Before The Fall	希望の灯火
+As Goes Light, So Goes Darkness	光と闇の境界
+The Gears Of Change	運命の歯車
+Revenge Of The Horde	最期の咆哮
+Soul Surrender	魂を継ぐ者
+The Far Edge Of Fate	宿命の果て
+The Legend Returns	英雄の帰還
+Rise Of A New Sun	暁光の刻
+Under The Moonlight	月下の華
+Prelude In Violet	狂乱の前奏曲
+A Requiem For Heroes	英雄への鎮魂歌
+Vows Of Virtue, Deeds Of Cruelty	白き誓約、黒き密約
+Echoes Of A Fallen Star	追憶の凶星
+Reflections In Crystal	クリスタルの残光
+Futures Rewritten	もうひとつの未来
+Death Unto Dawn	黎明の死闘
+Newfound Adventure	新たなる冒険
+Buried Memory	禁断の記憶
+Gods Revel, Lands Tremble	天の祝祭、地の鳴動
+The Dark Throne	玉座の咎人
+Growing Light	光明の起点
+Crossroads	未知との邂逅
+Seekers of Eternity	永久の探求者
+The Promise of Tomorrow	明日への道標
+Into the Mist	霧の中の理想郷
+Trail to the Heavens	彼方に至る路
+
+# 魚タブ：刺突漁の魚の「餌」の欄（大きさ and 速さ。ExtendedFish.SetBait が組み立てる）
+# GBR のデータ（GatherBuddy.GameData/Data/Fish/*.cs の .Spear(...) 58 件）に実在する 18 通りと、データの無い魚の 1 通り。
+# 速さの段階（遅い順）：Super Slow ものすごく遅い < Extremely Slow 非常に遅い < Very Slow かなり遅い < Slow 遅い < Average 普通
+#                     < Fast 速い < Very Fast かなり速い < Extremely Fast 非常に速い < Super Fast ものすごく速い
+Small and Super Slow	小型・ものすごく遅い	built
+Small and Extremely Slow	小型・非常に遅い	built
+Small and Very Slow	小型・かなり遅い	built
+Small and Slow	小型・遅い	built
+Small and Average	小型・普通	built
+Small and Fast	小型・速い	built
+Small and Very Fast	小型・かなり速い	built
+Average and Extremely Slow	中型・非常に遅い	built
+Average and Very Slow	中型・かなり遅い	built
+Average and Slow	中型・遅い	built
+Average and Average	中型・普通	built
+Average and Fast	中型・速い	built
+Large and Slow	大型・遅い	built
+Large and Average	大型・普通	built
+Large and Fast	大型・速い	built
+Large and Very Fast	大型・かなり速い	built
+Large and Extremely Fast	大型・非常に速い	built
+Large and Super Fast	大型・ものすごく速い	built
+Unknown Size and Unknown Speed	大きさ・速さ不明	built
+
+# 魚タブ：魚の名前に乗せたときの吹き出し（Interface.FishTab.ExtendedFish.cs。ImUtf8.Text で描かれる部分）
+# 天候の条件の行は「文字 → 天候のアイコン → 文字 → 天候のアイコン」の順に並ぶ。
+#   移り変わりの条件がある魚：「天候（いずれか）：[前の天候] → 次に（いずれか）：[今の天候]」
+#   今の天候だけの魚        ：「天候（いずれか）：[今の天候]」
+Requires one of	天候（いずれか）：
+Requires	天候：
+followed by one of	→ 次に（いずれか）：
+followed by	→ 次に：
+ Anything	 どれでも
+# 漁師の直感の長さ（ImUtf8.TextFramed で描かれる。2026-10-05 から ImDrawList_AddText も訳すので、枠も文字も日本語で出る）。
+# 下の「{0}:{1} Minutes」の型より先に、固定部分の長いこの型を合わせる。
+Intuition for {0}:{1} Minutes	漁師の直感（効果 {0}:{1} 分間）
+
+# ======================================================================
+# 天候タブ（Interface.WeatherTab.cs）
+Filter Zone...	エリアで絞り込み…
+
+# ======================================================================
+# 場所タブ（Interface.LocationsTab.cs）。Name・Type・Territory・Level・Aetheryte・Items は既存。
+X-Coord	X座標
+Y-Coord	Y座標
+Radius	半径
+# 「Markers」の列の幅はボタン 2 個分で決まり、見出しが 2 文字を超えると切れるので「目印」にした（中身はフィールドマーカー）。
+Markers	目印
+# 目印の列の絞り込み（MarkerFlags の名前。None＝保存したマーカー無し は既存の「なし」）
+Any	あり	enum
+Right-click to restore default. ({0})	右クリックで元に戻します（{0}）。
+Not in the correct zone for this location.	この場所のエリアにいません。
+No markers set that could be stored for this location.	この場所用に保存できるフィールドマーカーが置かれていません。
+Store the currently placed markers for this location:\n\n{0}	いま置いているフィールドマーカーを、この場所用に保存します：\n\n{0}
+No markers stored for this location.	この場所用に保存したフィールドマーカーはありません。
+Remove the stored markers for this location:\n\n{0}	この場所用に保存したフィールドマーカーを消します：\n\n{0}
+# 保存済みのマーカーがあるときは、上の文の後ろに「\n\nMarkers stored for this location:\n\n…」が付く（組み立て）
+Not in the correct zone for this location.\n\nMarkers stored for this location:\n\n{0}	この場所のエリアにいません。\n\nこの場所用に保存したフィールドマーカー：\n\n{0}	built
+No markers set that could be stored for this location.\n\nMarkers stored for this location:\n\n{0}	この場所用に保存できるフィールドマーカーが置かれていません。\n\nこの場所用に保存したフィールドマーカー：\n\n{0}	built
+Store the currently placed markers for this location:\n\n{0}\n\nMarkers stored for this location:\n\n{1}	いま置いているフィールドマーカーを、この場所用に保存します：\n\n{0}\n\nこの場所用に保存したフィールドマーカー：\n\n{1}	built
+
+# ======================================================================
+# 共通：出現時間（UiHelpers.cs の DrawTimeInterval と、その吹き出し。時間の文は GatherBuddy.GameData の TimeInterval.DurationString）
+# 「次の出現」の列・魚の吹き出しの餌の出現時間などに「12:34 Minutes」の形で出る（分:秒）。
+# 「{0}分{1}秒」の形にしないのは、吹き出しの複数行の文（開始\n終了\n12:34 Minutes）にもこの型が丸ごと合うため。
+# {0}:{1} を並べたまま後ろだけ変える形なら、どこに合っても「 Minutes」が「 分」に変わるだけで崩れない。
+# 【draft_B と重複】B は「{0} 分 {1} 秒」「{0} 時間 {1} 分」（語順を入れ替える形）。上の理由で A の形を推す。{0} Days は訳が同じ。
+{0}:{1} Minutes	{0}:{1} 分
+{0}:{1} Hours	{0}:{1} 時間
+{0} Days	{0} 日
+# 短い形（>1d・>3h・12:34m）は型の固定部分が 3 文字未満になるので訳せない（英語のまま）。
+{0}\n\nLoading next {1} windows...	{0}\n\nこの先 {1} 回分の出現時間を読み込み中…
+# 「この先の出現時間」の表（設定の Upcoming Windows Uptime Count が 2 以上のとき）
+Day	日
+Starts in	開始まで
+Downtime	次までの間隔
+Active	出現中
+# 日付の列「2026-10-05 (Mon)」の曜日（InvariantCulture の書式で組み立てる）
+{0} (Mon)	{0}（月）	built
+{0} (Tue)	{0}（火）	built
+{0} (Wed)	{0}（水）	built
+{0} (Thu)	{0}（木）	built
+{0} (Fri)	{0}（金）	built
+{0} (Sat)	{0}（土）	built
+{0} (Sun)	{0}（日）	built
+
+# ======================================================================
+# 共通：表の下の状態の行（UiHelpers.cs の DrawStatusLine。設定の Show Status Line が ON のとき）
+{0} / {1} Items Visible	{0} / {1} 品を表示中	built
+{0} / {1} Fish Visible	{0} / {1} 種の魚を表示中	built
+{0} Columns Hidden	{0} 列を隠しています
+# 魚のデータの上書きファイル（GameData.OverrideFile）があるときだけ出るボタン
+Reimport Fish Overrides	魚データの上書きを読み込み直す
+{0} Fish Overridden	{0} 種の魚のデータを上書き中
+
+# ======================================================================
+# 共通：表の右下の GatherClippy（手伝い）のボタンと説明の小窓（UiHelpers.cs の DrawClippy）
+# 小窓は幅が 1024 で固定・行数も固定のため、各項目は 1 行に収まる長さにした（改行は入れない）。
+Can't find something?	見つからないときは？
+Click for some help navigating this table.\nControl + Shift + Right-Click to permanently hide this button.	クリックすると、この表の使い方の説明が出ます。\nCtrl + Shift + 右クリックで、このボタンをずっと隠します。
+You can use text filters like "Item Name..." to only show entries that contain the given string. They are case-insensitive and are not stored for your next session.	「アイテム名…」などの欄に文字を入れると、それを含む行だけを出します。大文字小文字は区別せず、保存もしません。
+# 正規表現の例は、日本語のアイテム名に合う例に置き換えた（元の例は blue と green）。
+Text filters also support regular expressions, e.g. "(blue|green)" matches all entries that contain either blue or green.	文字の絞り込みには正規表現も使えます。例：「(銅|鉄)」と入れると、銅か鉄を含む行がすべて出ます。
+Button filters like "Next Uptime", "Node Type" or "Fish Type" allow you to filter specific types on click.	「次の出現」「採集点の種類」「種類」などのボタンの絞り込みでは、クリックして出す種類を選べます。
+Those filters are stored across sessions. For columns with active filters, the filter buttons are tinted red.	ボタンの絞り込みは次回も残ります。絞り込んでいる列は、ボタンが赤くなります。
+You can click in the blank space of a header to sort the table in this column, ascending or descending. This is signified with a little triangle pointing up or down.	見出しの空いた所をクリックすると、その列で並べ替えます（昇順・降順。上下の小さな三角で示します）。
+You can right-click in the blank space of a header to open the table context menu, in which you can hide columns you are not interested in.	見出しの空いた所を右クリックすると表のメニューが開き、要らない列を隠せます。
+You can resize text columns by dragging the small separation markers of the column. It highlights the line in blue. Size is stored across sessions.	文字の列は、列の境目をドラッグして幅を変えられます（境目が青く光ります）。幅は次回も残ります。
+You can reorder most columns by left-clicking in the blank space, holding the mouse button and dragging them. Ordering is stored across sessions.	たいていの列は、見出しの空いた所を押したままドラッグして並べ替えられます。順番は次回も残ります。
+You can right-click item names and a few other columns (like bait and fishing spot) to open further context menus with object-specific options.	アイテム名や一部の列（餌・釣り場など）は、右クリックでそれ用のメニューが開きます。
+You can also re-order the tabs themselves, though that is not stored across sessions.	タブ自体も並べ替えられますが、その順番は次回には残りません。
+Understood	わかりました
+
+# ======================================================================
+# 共通：場所の選択欄（UiHelpers.cs の DrawLocationInput。アラーム・採集グループ・自動採集のタブで使う）
+# 選ばないと GBR が場所を自動で選ぶ（PreferLocation が null）。draft_B にも同じ英語がある（訳は B に揃えた）。
+No Preferred Location	場所を指定しない（自動）
+
+# ======================================================================
+# 共通：アイテム・餌・釣り場の右クリックメニュー（Interface.ContextMenus.cs）
+# 「いま選んでいる」は、アラーム・採集グループ・採集小窓・自動採集の各タブで選んでいるもの（Selector.EnsureCurrent／Selected）。
+Add to Alarm Preset	アラームのまとまりに追加
+Add {0} to a new alarm preset.	{0} を、新しく作るアラームのまとまりに追加します。	built
+Add {0} to {1}	{0} を、いま選んでいる「{1}」に追加します。
+Add to Gather Group	採集グループに追加
+Requires a Gather Group to be setup and selected.	採集グループを作って、採集グループのタブで選んでおく必要があります。
+Add to Gather Window Preset	採集小窓のプリセットに追加
+# この吹き出しは「自動採集リストに追加」でも同じ英語が出る（GBR の書き誤り。実際は自動採集リストを新しく作る）。
+Add {0} to a new gather window preset.	{0} を、新しく作るプリセットに追加します。\n※（GBRHelper の補足）「自動採集リストに追加」では、新しい自動採集リスト（名前は From Gatherables List）を作って追加します。	built
+Add to Auto-Gather List	自動採集リストに追加
+# アイテムのリンクを自分のチャット欄に出す（Communicator.Print）
+Create Link	アイテムのリンクをチャットに出す
+Open in GarlandTools	GarlandTools で開く
+Open in TeamCraft (Browser)	TeamCraft で開く（ブラウザ）
+Open in TeamCraft (App)	TeamCraft で開く（アプリ）
+# 表の下のボタン（自動採集リストが 1 つ以上あるときだけ出る。{label} は Gatherables か Fish）
+Add All Filtered Gatherables to Auto-Gather List...	表示中の採集品をすべて自動採集リストに追加…	built
+Add All Filtered Fish to Auto-Gather List...	表示中の魚をすべて自動採集リストに追加…	built
+Add all currently visible gatherables to a selected auto-gather list.\nItems already present in the list are skipped.	いま表示している採集品をすべて、選んだ自動採集リストに追加します。\nリストにすでにある品は飛ばします。	built
+Add all currently visible fish to a selected auto-gather list.\nItems already present in the list are skipped.	いま表示している魚をすべて、選んだ自動採集リストに追加します。\nリストにすでにある魚は飛ばします。	built
+
+# ======================================================================
+# 2026-10-05 追加（下書き A の別表）：ImUtf8.TextFramed（魚の吹き出しの枠付きの文字）と右クリックメニューの項目。
+# 2026-10-05 に ImDrawList_AddText と igMenuItem のフックを足したので、辞書に入れた。
+# オーシャンフィッシングの時間帯（夕・夜・昼）の日本語版の画面での呼び方は、ゲームデータで確かめていない（未確認）。
+# 「Day」だけは「この先の出現時間」の表の見出しと同じ英語なので、上の節の「日」が両方に当たる。
+Uptime Dependency	ほかの魚の条件しだい
+Item ID: {0}	アイテム ID: {0}
+Always Up	常時出現
+Unknown Uptime	出現時間が不明
+No Weather Restrictions	天候の条件なし
+Unknown Weather Restrictions	天候の条件が不明
+Unknown Catch Method	釣り方が不明
+Intuition for 1 Minute	漁師の直感（効果 1 分間）
+Intuition for {0} Minutes	漁師の直感（効果 {0} 分間）
+Worth {0} Points	{0} ポイント
+Patch {0}	パッチ {0}
+Sunset	夕
+Sunset or Night	夕か夜
+Sunset or Day	夕か昼
+Night	夜
+Day or Night	昼か夜
+Move to Backup	バックアップへ移す（.json.bak に名前を変える）
+
+# ======================================================================
+# 2026-10-05 追加（下書き B）：アラーム・採集グループ・採集小窓・自動採集（状態の文を含む）・釣果記録・釣果の集計の各タブ。
+# GBR 7.5.6.1 のソースで各文字の動きを確かめて訳した。
+
+# ======================================================================
+# アラームタブ（GatherBuddy/Gui/Interface.AlarmTab.cs）
+Do you often find yourself late for a very important date with no time to say hello or goodbye?\nSet up your very own alarm clock. Viera might even be able to wear it around their neck.	とても大事な約束に遅れそうで、「こんにちは」も「さようなら」も言う暇がない…なんてことはよくありませんか？\nあなただけの目覚まし時計を用意しましょう。ヴィエラなら首から下げられるかもしれません。
+<No Description>	<説明なし>
+Delete this Alarm...	このアラームを消す…
+Names are optional and can be used in the alarm message that is printed to chat.	名前は付けなくてもかまいません。\n付けると、チャットに出すアラームの文面で使えます。
+Enable this Alarm.	このアラームを有効にします。
+Trigger this alarm this many seconds before the item in question is next available.	その品が次に採れるようになる、この秒数前にアラームを鳴らします。
+Print a chat message when this alarm is triggered.	アラームが鳴ったとき、チャットにメッセージを出します。
+Play this sound effect when this alarm is triggered.	アラームが鳴ったとき、この効果音を鳴らします。
+Currently Triggered	いま発動中
+Enable this alarm group. Only those alarms in the group that are enabled themselves will be counted as active.	このアラームのまとまりを有効にします。\nまとまりの中で、アラーム自体も有効にしてあるものだけが動きます。
+Enable all disabled alarms, or disable all alarms.	無効のアラームをすべて有効にするか、すべてのアラームを無効にします。
+Add new Alarm...	アラームを追加…
+Copy current Alarm Group to clipboard.	選んでいるアラームのまとまりを、クリップボードへコピーします。
+Create Preset	採集小窓のプリセットを作る
+Create a new Gather Window Preset from this alarm group.	このアラームのまとまりから、採集小窓の新しいプリセットを作ります。
+Use /gather alarm to gather the last item alarm triggered.\nUse /gatherfish alarm to gather the last fish alarm triggered.	/gather alarm で、最後に鳴ったアイテムのアラームの品を採りに行きます。\n/gatherfish alarm で、最後に鳴った魚のアラームの魚を釣りに行きます。
+# 品の場所の選択欄「No Preferred Location」は draft_A.tsv にある（UiHelpers.cs の部品のため）
+
+# ======================================================================
+# 採集グループタブ（GatherBuddy/Gui/Interface.GatherGroupTab.cs）
+Gather Groups	採集グループ
+Do you really need to catch a Dirty Herry from 8PM to 10PM but gather mythril ore otherwise?\nSet up your own gather groups! You can even share them with others!	20時〜22時（ET）はダーティーヘリングを釣りたいけれど、それ以外の時間は霊銀鉱を掘りたい…そんなことはありませんか？\n自分だけの採集グループを作りましょう！ほかの人と共有もできます！
+Restore the gather groups provided by default if they have been deleted or changed in any way.\nHold Control to apply. Default Groups are:\n\t- {0}	最初から用意されている採集グループを、消したり変えたりしていても元に戻します。\nCtrl を押しながらクリックすると実行します。用意されているグループ：\n\t- {0}
+# 時間帯の入力欄は「 from [時]:[分] to [時]:[分] Eorzea Time」の順に並ぶ。日本語では「 ET [時]:[分] 〜 [時]:[分] の間」と読めるようにする。
+# 英語の行末の空白は照合に要る（完全一致）。日本語は行末の空白に頼らない形にした（部品の間は ImGui が空けるので詰まらない）。
+ from 	 ET
+ to 	 〜
+ Eorzea Time	 の間
+Delete this item.	この品を消します。
+{0} minutes	{0} 分
+{0} minutes are overwritten by overlap with earlier items.	このうち {0} 分は、上にある品と時間が重なっているため、上の品が優先されます。
+No annotation. Right-click to edit.	メモはありません。右クリックで書き込めます。
+Annotation...	メモ…
+Not all minutes have a corresponding item.	品が割り当てられていない時間（分）があります。
+Add new item...	品を追加…
+Name can not be empty.	名前を空にはできません。
+Name is already in use.	その名前はもう使われています。
+Copy current Gather Group to clipboard.	選んでいる採集グループを、クリップボードへコピーします。
+Create Auto-Gather List	自動採集リストを作る
+Create a new Auto-Gather List from this gather group.	この採集グループから、新しい自動採集リストを作ります。
+Create Window Preset	採集小窓のプリセットを作る
+Create a new Gather Window Preset from this gather group.	この採集グループから、採集小窓の新しいプリセットを作ります。
+Create Alarms	アラームを作る
+Create a new Alarm Group from this gather group.	この採集グループから、新しいアラームのまとまりを作ります。
+Restore Default Groups	最初からあるグループを戻す
+Use /gathergroup [name] [optional:minute offset] to call a group.\nThis will /gather the item that is up currently (or [minute offset] eorzea minutes in the future).\nIf times for multiple items overlap, the first item from top to bottom will be gathered.	/gathergroup [名前] [分のずれ（省略可）] で、グループを呼び出します。\nいま出ている品（または [分のずれ] だけ先のエオルゼア時間に出る品）を /gather します。\n複数の品の時間が重なるときは、上にある品を採ります。
+# 名前・説明の横の鉛筆ボタンの吹き出し（ElliLib の ImGuiUtil.DrawEditButtonText。名前と説明の両方に出るので「名前を変える」にはしない）
+Rename	書き換える
+
+# ======================================================================
+# 採集小窓タブ（GatherBuddy/Gui/Interface.GatherWindowTab.cs）
+Config window too big? Why can't you hold all this information?\nPrepare a small window with only those items that actually interest you!	設定の画面が大きすぎる？　この情報を全部覚えていられない？\n本当に気になる品だけを載せた、小さな窓を用意しましょう！
+Copy current gather window preset to clipboard.	選んでいる採集小窓のプリセットを、クリップボードへコピーします。
+Create a new Alarm Group from this gather window preset.	この採集小窓のプリセットから、新しいアラームのまとまりを作ります。
+If not sorting the Gather Window by uptimes, items are uniquely added in order of enabled preset, then order of item in preset.\nYou can drag and draw presets in the list to move them.\nYou can drag and draw items in a specific preset to move them.\nYou can drag and draw an item onto a different preset from the selector to add it to that preset and remove it from the current.\nIn the Gather Window itself, you can hold Control and Right-Click an item to delete it from the preset it comes from. If this removes the last item in a preset, the preset will also be removed.	採集小窓を出現時間の順に並べないときは、有効なプリセットの順、その中では品の順に並べます（同じ品は 1 回だけ）。\n左の一覧のプリセットは、ドラッグで並べ替えられます。\nプリセットの中の品も、ドラッグで並べ替えられます。\n品を左の一覧の別のプリセットへドラッグすると、そのプリセットへ移ります（いまのプリセットからは消えます）。\n採集小窓では、Ctrl を押しながら品を右クリックすると、その品を元のプリセットから消せます。プリセットの最後の品を消すと、プリセットも消えます。
+Delete this item from the preset...	この品をプリセットから消す…
+Add this item at the end of the preset, if it is not already included...	この品をプリセットの最後に足す（まだ入っていなければ）…
+
+# ======================================================================
+# 自動採集タブ（GatherBuddy/Gui/Interface.AutoGatherTab.cs）
+Auto-Gather	自動採集
+You read that right! Auto-gather!	読み間違いではありません！　自動採集です！
+Copy current auto-gather list to clipboard.	選んでいる自動採集リストを、クリップボードへコピーします。
+Import From Artisan	Artisan から読み込む
+Import your lists from Artisan into GBR\nBrings up a dropdown to select which list to import.\nA new list will be created in GBR when you click on the name of the list in the dropdown.	Artisan のリストを GBR に読み込みます。\n読み込むリストを選ぶ一覧が開きます。\n一覧でリストの名前をクリックすると、GBR に新しいリストが作られます。
+{0} ({1})\n(Click to import to new auto-gather list)	{0}（{1}）\n（クリックすると、新しい自動採集リストとして読み込みます）
+Import from TeamCraft	TeamCraft から読み込む
+Populate list from clipboard contents (TeamCraft format)	クリップボードの中身（TeamCraft の形式）から、このリストに品を入れます
+If the config option to sort by location is not selected, items are gathered in the order of the enabled lists, then in the order of items in each list, but timed nodes and fish are always prioritized.\nYou can drag and drop lists to move them.\nYou can drag and drop items within a specific list to rearrange them.\nYou can drag and drop an item onto a different list from the selector to move it between lists.\nIn the Gather Window, you can hold Control and Right-Click an item to delete it from the list it belongs to.	設定の「品目の並べ方」で場所（Location）を選んでいないときは、有効なリストの順、その中では品の順に採ります。\nただし、時限の採集点と魚はいつも優先します。\nリストはドラッグで並べ替えられます。\nリストの中の品も、ドラッグで並べ替えられます。\n品を左の一覧の別のリストへドラッグすると、そのリストへ移せます。\n採集小窓では、Ctrl を押しながら品を右クリックすると、その品を元のリストから消せます。
+Auto-Gather Support Discord	自動採集のサポート用 Discord（クリックで開きます）
+Fallback	予備リスト	part
+Items from fallback lists won't be auto-gathered.\nBut if a node doesn't contain any items from regular lists or if you gathered enough of them,\nitems from fallback lists would be gathered instead if they could be found in that node.	予備リストの品は、それを目当てには自動採集しません。\nただし、採集点に通常のリストの品が無いとき、または必要な数を採り終えたときは、\nその採集点に予備リストの品があれば、代わりにそれを採ります。
+Remove Completed	達成した品を外す	part
+Automatically remove enabled items from this list once your inventory reaches the configured quantity for them.	有効な品の所持数が設定した数に届いたら、その品をこのリストから自動で外します。
+Search items...	品を検索…
+Filter items by name. Reordering is disabled while a search is active.	品を名前で絞り込みます。検索している間は並べ替えできません。
+Enable visible items in this list.	このリストで表示している品を、すべて有効にします。
+Disable visible items in this list.	このリストで表示している品を、すべて無効にします。
+{0} / {1} Items in List	表示中 {0} / {1} 品
+Delete this item from the list	この品をリストから消す
+Inventory: 	所持：
+No matching items.	一致する品はありません。
+Add this item at the end of the list	この品をリストの最後に足す
+Enable all items in the list	リストの品をすべて有効にする	built
+Disable all items in the list	リストの品をすべて無効にする	built
+
+# ======================================================================
+# 自動採集タブ：左の一覧（GatherBuddy/Gui/Interface.AutoGatherListSelector.cs）
+Create a new auto-gather list.	新しい自動採集リストを作ります。
+Import an auto-gather list from clipboard.	クリップボードから自動採集リストを読み込みます。
+# 右クリックメニューの吹き出し（メニュー項目そのものは下の「右クリックメニューの項目」の節）
+Vendor buy lists are not available.	店の購入リストは使えません。
+No direct fishing bait was found in this auto-gather list.	この自動採集リストには、最初に付ける釣り餌が見つかりませんでした。
+Vendor data is still loading.	店のデータを読み込み中です。
+Vendor data is not ready yet.	店のデータの準備がまだできていません。
+# 「餌の購入リストを作る」の結果の小窓（窓の名前「Bait Buy List Result」は窓の題名なので訳されない）
+Needs manual acquisition	自分で手に入れる必要がある餌
+The following bait was not added from '{0}'. It needs to be crafted or obtained outside the vendor system.	自動採集リスト「{0}」の次の餌は、追加しませんでした。製作するか、店以外で手に入れる必要があります。	built
+The following baits were not added from '{0}'. They need to be crafted or obtained outside the vendor system.	自動採集リスト「{0}」の次の餌は、追加しませんでした。製作するか、店以外で手に入れる必要があります。	built
+Created vendor buy list '{0}' from '{1}'. The following bait was not added. It needs to be crafted or obtained outside the vendor system.	自動採集リスト「{1}」から、店の購入リスト「{0}」を作りました。次の餌は追加しませんでした。製作するか、店以外で手に入れる必要があります。	built
+Created vendor buy list '{0}' from '{1}'. The following baits were not added. They need to be crafted or obtained outside the vendor system.	自動採集リスト「{1}」から、店の購入リスト「{0}」を作りました。次の餌は追加しませんでした。製作するか、店以外で手に入れる必要があります。	built
+Updated vendor buy list '{0}' from '{1}'. The following bait was not added. It needs to be crafted or obtained outside the vendor system.	自動採集リスト「{1}」から、店の購入リスト「{0}」を更新しました。次の餌は追加しませんでした。製作するか、店以外で手に入れる必要があります。	built
+Updated vendor buy list '{0}' from '{1}'. The following baits were not added. They need to be crafted or obtained outside the vendor system.	自動採集リスト「{1}」から、店の購入リスト「{0}」を更新しました。次の餌は追加しませんでした。製作するか、店以外で手に入れる必要があります。	built
+# 一覧の部品（ElliLib の FileSystemSelector）：フォルダの追加ボタン・空き所の右クリック・フォルダの右クリックの吹き出し・ドラッグ中の表示
+Create a new, empty folder. Can contain '/' to create a directory structure.	空のフォルダを新しく作ります。'/' を入れると、階層のあるフォルダをまとめて作れます。
+Expand All Directories	すべてのフォルダを開く
+Collapse All Directories	すべてのフォルダを閉じる
+Locking an item prevents this item from being dragged to other positions. It does not prevent any other manipulations of the item.	ロックすると、ドラッグでほかの位置へ動かせなくなります。それ以外の操作はできます。
+Remove this folder and move all its children to its parent-folder, if possible.	このフォルダをなくし、中身をすべて一つ上のフォルダへ移します（できる場合）。
+Successively expand all folders that descend from this folder, including itself.	このフォルダと、その下にあるフォルダを、すべて順に開きます。
+Successively collapse all folders that descend from this folder, including itself.	このフォルダと、その下にあるフォルダを、すべて順に閉じます。
+Enter a full path here to move or rename the folder. Creates all required parent directories, if possible.	ここにフルパスを入れると、フォルダを移動したり名前を変えたりできます。\n必要な親フォルダは、できればまとめて作ります。
+Moving {0}...	{0} を移動中…
+Moving ...\n\t - {0}	移動中…\n\t - {0}
+
+# ======================================================================
+# 自動採集タブ：状態の文（GatherBuddy/AutoGather/AutoGather.Ui.cs の「Status: {AutoStatus}」）
+# 「Status: …」の 1 本の文字列として描かれるため、「Status: 」を付けた形で書く（既存の「Status: {0}」の型より先に合う）。
+# AutoStatus は AutoGather/AutoGather.cs ほかで設定される。自動採集を止めた理由（AbortAutoGather の文）は、止まったあとも残る。
+# 止まっている
+Status: Idle	状態: 停止中	built
+Status: Idle...	状態: 停止中…	built
+# 準備・待ち
+Status: Refreshing timers...	状態: 宝の地図を次に採れる時刻を確かめています…	built
+Status: Player is busy...	状態: キャラクターが行動できない状態です（エリア移動・会話・詠唱・ジャンプ・採集の動作中など）…	built
+Status: No available items to gather	状態: いま採れる品はありません（出てくるのを待っています）	built
+Status: Waiting for Gathering Point... (No Nav Mode)	状態: 採集点に着くのを待っています…（「vnavmesh で自動移動する」が OFF）	built
+Status: Waiting for GP to regenerate...	状態: GP の回復を待っています…	built
+Status: Calculating best action sequence...	状態: 一番良いアクションの順番を計算中…	built
+Status: Waiting for correct Umbral weather	状態: 目当ての天候（焔霊風・土霊風・雷霊風など）になるのを待っています	built
+Status: Waiting for map marker to show up	状態: 地図の印が出るのを待っています	built
+Status: Waiting for map marker to show up (grace period: {0}s)	状態: 地図の印が出るのを待っています（あと {0} 秒は待つ）	built
+Status: Waiting for retainers ({0}s remaining)...	状態: リテイナーの処理を待っています（ベンチャー完了まであと {0} 秒）…	built
+Status: Waiting for character change to complete...	状態: キャラクターの切り替えが終わるのを待っています…	built
+Status: Relogging to {0}@{1}...	状態: {0}@{1} にログインし直しています…	built
+Status: Waiting for player to be ready...	状態: キャラクターが動けるようになるのを待っています…	built
+# 採集・釣り
+Status: Gathering...	状態: 採集中…	built
+Status: Fishing...	状態: 釣り中…	built
+Status: Finishing current cast before switching target...	状態: 狙う魚を変える前に、いまのキャストが終わるのを待っています…	built
+Status: Stopping fishing to change target...	状態: 狙う魚を変えるため、釣りをやめています…	built
+Status: Turning in collectables...	状態: 収集品を納品中…	built
+Status: Aetherial reduction	状態: 精選中	built
+Status: Repairing...	状態: 修理中…	built
+# 移動
+Status: Generating path...	状態: 経路を計算中…	built
+Status: Advanced unstuck in progress!	状態: 引っかかりから抜け出す処理の最中です！	built
+Status: Moving to node...	状態: 採集点へ移動中…	built
+Status: Moving to far node...	状態: 遠くの採集点へ移動中…	built
+Status: Waiting for node to become targetable...	状態: 漁場（刺突漁）を選べるようになるのを待っています…	built
+Status: Moving to Swimming Shadows...	状態: 魚影へ移動中…	built
+Status: Refreshing Swimming Shadows state...	状態: 魚影の状態を確かめ直しています…	built
+Status: Moving to aetheryte...	状態: エーテライトへ移動中…	built
+Status: Moving to fishing spot	状態: 釣り場へ移動中	built
+Status: Moving to new fishing spot...	状態: 釣り場の別の位置へ移動中…	built
+Status: Returning to fishing spot...	状態: 釣り場へ戻ります…	built
+Status: Dismounting...	状態: マウントから降りています…	built
+Status: Adjusting rotation...	状態: 向きを合わせています…	built
+Status: Waiting for rotation...	状態: 向きが変わるのを待っています…	built
+Status: Waiting to check Cast ({0}s)...	状態: キャストできるか確かめるまで待っています（あと {0} 秒）…	built
+Status: Adjusting position for Cast...	状態: キャストできる位置へ少し動いています…	built
+Status: Fishing recovery in progress...	状態: 釣り場への移動を立て直しています…	built
+Status: Fishing route stalled, retrying the same spot...	状態: 釣り場への移動が止まりました。同じ位置へもう一度向かいます…	built
+Status: Fishing route stalled twice, finding a nearby spot...	状態: 釣り場への移動が 2 回止まりました。近くの別の位置を探します…	built
+Status: Fishing route stopped short twice, finding a nearby spot...	状態: 釣り場の手前で 2 回止まりました。近くの別の位置を探します…	built
+Status: Can't land here, recovering before selecting a nearby spot...	状態: ここでは降りられません。立て直してから、近くの別の位置を選びます…	built
+Status: Too many jiggle attempts, finding a nearby spot...	状態: 位置を少しずらしてもキャストできません。近くの別の位置を探します…	built
+Status: Stopping fishing to relocate to new spot...	状態: 別の位置へ移るため、釣りをやめています…	built
+Status: Fish wary - relocating...	状態: 魚が警戒し始めました。位置を少し変えます…	built
+Status: Fish detected! Relocating and waiting...	状態: 魚に警戒されました！　位置を変えて、しばらく待ちます…	built
+Status: Persistent amiss! Teleporting out to clear...	状態: 魚の警戒が続いています！　いったんテレポートで離れて解消します…	built
+# ディアデム諸島
+Status: Moving to Diadem NPC...	状態: ディアデム諸島の受付の NPC へ移動中…	built
+Status: Moving to next Diadem node ({0}y)...	状態: ディアデム諸島の次の採集点へ移動中（{0} ヤルム）…	built
+Status: Trying to reset the bugged Clouded node	状態: 出てこない幻の採集場所を、出し直そうとしています	built
+# テレポート
+Status: Teleporting...	状態: テレポート中…	built
+Status: Teleporting to housing ward...	状態: ハウジングエリアへテレポート中…	built
+Status: Using aethernet...	状態: 都市内エーテライトで移動中…	built
+Status: Closing gathering window before teleport...	状態: テレポートの前に、採集の画面を閉じています…	built
+Status: Closing fishing before teleport...	状態: テレポートの前に、釣りをやめています…	built
+Status: Waiting for current action to complete before teleport...	状態: テレポートの前に、いまの動作が終わるのを待っています…	built
+Status: Waiting for current tasks to complete before teleport...	状態: テレポートの前に、実行中の処理が終わるのを待っています…	built
+Status: Waiting after recent node interaction before teleport...	状態: 採集点に触れた直後なので、テレポートの前に少し待っています…	built
+Status: Can not teleport when bound by duty	状態: コンテンツに参加している間はテレポートできません	built
+Status: Manual teleporting required	状態: 自分で移動する必要があります	built
+Status: Install Lifestream or teleport to {0} manually	状態: Lifestream を導入するか、{0} へ自分で移動してください	built
+Status: Install Lifestream to access housing wards	状態: ハウジングエリアへ行くには Lifestream が必要です	built
+# 自動採集を止めた理由（止まったあとも残る）
+Status: Inventory is full	状態: 所持品がいっぱいです（自動採集を止めました）	built
+Status: Repairs needed.	状態: 修理が必要です（自動採集を止めました）。	built
+Status: Repairs needed, but no repair job found.	状態: 修理が必要ですが、修理できるクラフターのレベルが足りません（自動採集を止めました）。	built
+Status: Repairs needed, but no dark matter found.	状態: 修理が必要ですが、使えるダークマターを持っていません（自動採集を止めました）。	built
+# 「All active nodes in The Diadem are blacklisted」は入れない（ディアデムの中でだけ呼ばれ、中では AbortAutoGather が状態を書かずに抜けるため、画面に出ない）
+Status: Fishing approach recovery failed for {0}	状態: {0} への移動を立て直せませんでした（自動採集を止めました）	built
+Status: No untried fishing positions remain for {0}	状態: {0} で、まだ試していない釣りの位置が残っていません（自動採集を止めました）	built
+Status: Nearest untried fishing position is {0}y away; stopping instead of relocating	状態: まだ試していない一番近い釣りの位置が {0} ヤルム先なので、移らずに止めました	built
+Status: Fell out of control loop unexpectedly. Please report this error.	状態: 想定外の流れで処理が抜けました。GBR の作者にこの不具合を報告してください。	built
+
+# ======================================================================
+# 釣果記録タブ（GatherBuddy/Gui/Interface.RecordTab.cs）
+Fish Records	釣果記録
+The records of my fishing prowess have been greatly exaggerated.\nFind, cleanup and share all data you have collected while fishing.	私の釣りの腕前の記録は、だいぶ大げさに伝わっているようです。\n釣りの間に集めたデータを探し、整理し、共有します。
+Cleanup	整理する
+Delete all entries that were marked as invalid for some reason,\nas well as all entries that have a duplicate (with the same content id and timestamp).\nUsually, there should be none such entries.\nUse at your own risk, no backup will be created automatically.	何かの理由で無効の印が付いた記録と、\n重複している記録（同じキャラクターの ID と時刻）を、すべて消します。\nふつうは、そういう記録はありません。\n自己責任で使ってください。控えは自動では作られません。
+Copy to Clipboard	クリップボードへコピー
+Export all fish records to your clipboard, to share them with other people. This may be a lot	ほかの人と共有するため、すべての釣果記録をクリップボードへ書き出します。かなりの量になることがあります
+Import a set of fish records shared with you from your clipboard. Should automatically skip duplicates.	共有してもらった釣果記録を、クリップボードから読み込みます。重複している記録は自動で飛ばすはずです。
+Export JSON	JSON で書き出す
+Given a path, export all records as a single JSON file.	指定したパスへ、すべての記録を 1 つの JSON ファイルとして書き出します。\n※（GBRHelper の補足）押すと入力欄が出ます。保存先のファイルのフルパス（ドライブ名から）を入れて Enter を押してください。
+Export TSV	TSV で書き出す
+Given a path, export all records as a single TSV file.	指定したパスへ、すべての記録を 1 つの TSV ファイルとして書き出します。\n※（GBRHelper の補足）押すと入力欄が出ます。保存先のファイルのフルパス（ドライブ名から）を入れて Enter を押してください。
+Copy Caught Fish JSON	釣った魚の番号を JSON でコピー
+# 表の列の名前（列の見出しの右クリックメニュー・絞り込み欄の薄い文字・絞り込みの選択欄に出る）
+Content ID	キャラ ID
+Bait	餌
+Fishing Spot	釣り場
+Caught Fish	釣った魚
+TimeStamp	日時
+Tug	当たり
+Hookset	フッキング
+Bite	当たりまで
+Gath.	獲得力
+Perc.	技術力
+Amt	数
+Ilm	大きさ
+Flags	効果
+# 表の中身と吹き出し
+Hold Control and right-click to delete...	Ctrl を押しながら右クリックで、この記録を消します…
+Large Catch!	ラージサイズ！
+Collectible!	収集品！
+Large Catch!\nCollectible!	ラージサイズ！\n収集品！	built
+Legacy	旧形式
+# 当たりの列（BiteType の名前）と絞り込みの候補（TugTypeFilter の名前）。Legendary・Unknown・None は既存の辞書にある（Legendary は「伝説」→ 変更案の表を参照）
+Weak	弱い（!）	enum
+Strong	強い（!!）	enum
+# フッキングの列（GatherBuddy.GameData の HookSet.ToName）と絞り込みの候補（HookSetFilter の名前）。Regular・Unknown・None・Invalid は既存の辞書にある
+Precise	プレシジョン	enum
+Powerful	ストロング	enum
+Double	ダブル	enum
+Triple	トリプル	enum
+Stellar	ビューティフル	enum
+# 効果の列のアイコンの吹き出し（Effects の名前。Ambitious Lure・Modest Lure は文字列）
+Large	ラージサイズ	enum
+# 「Collectible」は draft_A.tsv にある（魚タブの絞り込みにも出るため）
+Patience	ペーシェンス
+Patience2	ペーシェンスII	enum
+Intuition	漁師の直感
+Snagging	引掛釣り
+FishEyes	フィッシュアイ	enum
+Chum	撒き餌
+PrizeCatch	大物狙い	enum
+IdenticalCast	セイムキャスト	enum
+SurfaceSlap	トレードリリース	enum
+BigGameFishing	大物の知識	enum
+Ambitious Lure	アンビシャスルアー
+Modest Lure	モデストルアー
+
+# ======================================================================
+# 釣果の集計タブ（GatherBuddy/Gui/Interface.StatsPage.cs。設定「釣果の集計を使う」が ON のときだけ出る）
+# グラフの中の文字（Size・Count・Average・Large・Big Game Fishing・Bite Time・Chum・AmbitiousLure1 など）は
+# DrawList の AddText で描かれる。2026-10-05 に AddText も訳すようにしたので、辞書にある語（Chum・Big Game Fishing など）は訳される。
+# Size・Count などの一般語は、ほかの画面の同じ英語に当たらないよう入れていない。報告の文（コピーされる文）も訳さない。
+Fishing Spots Stats	釣果の集計
+Aggregator of Fish Record data in a presentable format	釣果記録のデータを、見やすい形にまとめます
+Copy Fish Stats for {0}	{0} の集計をコピー
+Coordinates: ({0}, {1})	座標: ({0}, {1})
+Territory: {0}	エリア: {0}
+Closest Aetheryte: {0}	最寄りのエーテライト: {0}
+No Aetheryte found nearby.	近くにエーテライトが見つかりません。
+Available Fish:	釣れる魚:
+No fish available.	釣れる魚はありません。
+Bait: {0}	餌: {0}
+Caught: {0} times	釣った回数: {0} 回
+Percent of baited catches: {0}	この餌で釣れた中での割合: {0}%
+
+# ======================================================================
+# 共通（ほかのタブとも共有する部品）は draft_A.tsv に任せた（同じ英語が 2 回あると辞書の読み込みで誤りになるため）。
+# 下書き B の担当タブでも使う次の 7 件は、draft_A.tsv の訳がそのまま当たる：
+#   No Preferred Location（アラーム・採集グループ・自動採集の品の場所の選択欄）
+#   Collectible（釣果記録の効果のアイコンの吹き出し）
+#   Enable All・Right-click to clear filters.（釣果記録の表の絞り込みの選択欄）
+#   {0} Days・{0}:{1} Hours・{0}:{1} Minutes（アラームの行の残り時間）
+
+# ======================================================================
+# 右クリックメニューの項目（ImGui.MenuItem・BeginMenu。2026-10-05 にこの 2 つのフックを足したので訳される）
+# GBR（Interface.AutoGatherListSelector.cs）の自動採集リスト・フォルダの右クリックメニュー
+Move Up	上へ移動
+Move Down	下へ移動
+Delete List	リストを消す
+Duplicate List	リストを複製
+Enable	有効にする
+Disable	無効にする
+Export to Clipboard	クリップボードへ書き出す
+Generate Bait Buy List	餌の購入リストを作る
+Create New List	新しいリストを作る
+Add to Existing List	既存のリストに足す
+Show Non-Vendor Baits	店で買えない餌を見る
+Create Subfolder	サブフォルダを作る
+Delete Folder	フォルダを消す
+# ElliLib（FileSystemSelector）のフォルダ・リストの右クリックメニュー
+Lock	ロック
+Unlock	ロックを解除
+Dissolve Folder	フォルダを解く
+Expand All Descendants	下のフォルダをすべて開く
+Collapse All Descendants	下のフォルダをすべて閉じる
+
+# ======================================================================
+# 2026-10-05 追加：釣果記録タブの効果の絞り込み（三状態のチェック）の名前。
+# 名前は ImDrawList_AddText で描かれ、幅は igCalcTextSize で測られる。AddText も訳すようにしたので入れた（用語は下書き B に合わせた）。
+Large Catch	ラージサイズ
+Patience II	ペーシェンスII
+Fish Eyes	フィッシュアイ
+Prize Catch	大物狙い
+Identical Cast	セイムキャスト
+Surface Slap	トレードリリース
+Big Game Fishing	大物の知識

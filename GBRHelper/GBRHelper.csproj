@@ -1,0 +1,134 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Name>GBRHelper</Name>
+    <Punchline>GBR の自動採集を補助（ベンチャー回収・未採取品・素材の補充・霊砂・日本語表示）</Punchline>
+
+    <Description>GatherBuddyReborn（GBR）の自動採集を補助する機能を 1 つにまとめたプラグインです。GBR 本体には手を加えません。
+
+・GBR の日本語表示：GBR のメイン画面の英語を日本語で表示
+・ベンチャー回収：自動採集中にベンチャーが回収できるようになったら、採集の切れ目で宿屋の部屋へ戻って回収し、自動採集に戻る（旧 GBR Venture Relay）
+・ベンチャー依頼品の解放採取：採取手帳でまだ採っていない品を、Lv 帯ごとに GBR のリストにする
+・全素材の補充：Lv 帯ごとに全部の品を N 個ずつ（または鞄＋リテイナーで N 個になるまで）採るリストを作る
+・霊砂・クリスタル：欲しい霊砂・クリスタルを目標の数まで、原料を採って精選させる
+・Crafting Listsから末端素材抽出：Artisan の Crafting Lists の素材を GBR のリストにする
+
+必須プラグイン: GatherBuddyReborn
+機能によって必要: AutoRetainer / Lifestream / vnavmesh（ベンチャー回収）・Allagan Tools（希望所持数・リテイナーの数）・Artisan（Crafting Lists）
+画面の「必要なプラグイン」で導入状況を確かめられます。
+
+GBR Venture Relay を使っていた場合は、GBR Venture Relay を外してください（設定は自動で引き継ぎます）。</Description>
+
+    <Tags>gatherbuddy;gathering;retainer;venture;automation;japanese;translation</Tags>
+    <Author>ヌル</Author>
+    <Version>0.3.0.0</Version>
+    <RootNamespace>GBRHelper</RootNamespace>
+    <AssemblyName>GBRHelper</AssemblyName>
+    <Copyright>MIT</Copyright>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Platforms>x64</Platforms>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DalamudLibPath>$(appdata)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+  </PropertyGroup>
+
+  <!--
+    機能①（GBR の日本語表示）の辞書。DLL に埋め込み、実行中は埋め込んだものだけを読む。
+    設定フォルダへ書き出さない（書き出した古い辞書が優先されて、直した訳が効かなくなる罠を避けるため）。
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Translation\GbrJa.tsv" LogicalName="GBRHelper.Translation.GbrJa.tsv" />
+  </ItemGroup>
+
+  <!--
+    ビルドしたら Dalamud が読み込んでいるフォルダへ自動でコピーする。
+    Dalamud の「Automatic Reloading」を有効にしてあれば、置いた時点で読み直される。
+
+    ゲームが DLL を掴んでいてコピーできないことがあるため、
+    失敗してもビルドは止めない（ContinueOnError）。
+
+    配置先は環境変数 GBRH_DEPLOY_DIR で指定する。指定が無ければ配置しない
+    （ビルドは通る。bin\Release\ の中身を手で置けばよい）。
+
+        setx GBRH_DEPLOY_DIR "D:\MyPlugins\GBRHelper\"
+
+  -->
+  <PropertyGroup>
+    <DeployDir Condition="'$(Configuration)' == 'Release'">$(GBRH_DEPLOY_DIR)</DeployDir>
+  </PropertyGroup>
+
+  <!--
+    配置は Build ではなく DalamudPackager の後に走らせる。
+
+    manifest（$(AssemblyName).json）を作るのは DalamudPackager で、
+    その実行は Build より後になる。AfterTargets="Build" にすると
+    manifest がまだ無い状態でコピーが走り、DLL だけが置かれる。
+    Dalamud は manifest を見てプラグインを認識するため、
+    DLL だけでは一覧に出ない（実際にこれで出なかった）。
+
+    ターゲット名は DalamudPackager.targets で確認した実名。
+
+    Release のターゲットの後だけに付ける。
+    以前は Debug のターゲットの後にも付けていたが、MSBuild は条件で飛ばされたターゲットの
+    「後に」指定された処理も、その時点で実行する。Debug のターゲットは Release のものより
+    先に並んでいるので、Release ビルドでは manifest を作る前に配置が走り、
+    前回のビルドの古い manifest が置かれていた（配置 13:23:23.68 → manifest 作成 13:23:23.82）。
+    配置先（DeployDir）は Release でしか決まらないので、Debug の後に付ける意味も無い。
+  -->
+  <Target Name="DeployToPluginFolder"
+          AfterTargets="DefaultDalamudPackagerRelease"
+          Condition="'$(DeployDir)' != ''">
+    <!--
+      無いファイルを並べると警告になるので、存在を確かめてから。
+      【DLL は最後に写す】Dalamud の開発用プラグインは DLL の更新を見張り、約 0.5 秒後に manifest ごと読み込み直す。
+      DLL を先に写すと、読み込み直しの最中にまだ写している manifest が「使用中」で読めず、LoadError のまま止まる
+      （実測した罠）。manifest・deps.json を先に写し終えてから、DLL を別の Copy で写す。
+    -->
+    <ItemGroup>
+      <DeployFirst Include="$(OutputPath)$(AssemblyName).json"
+                   Condition="Exists('$(OutputPath)$(AssemblyName).json')" />
+      <DeployFirst Include="$(OutputPath)$(AssemblyName).deps.json"
+                   Condition="Exists('$(OutputPath)$(AssemblyName).deps.json')" />
+      <DeployLast Include="$(OutputPath)$(AssemblyName).dll"
+                  Condition="Exists('$(OutputPath)$(AssemblyName).dll')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(DeployDir)" />
+
+    <Copy SourceFiles="@(DeployFirst)"
+          DestinationFolder="$(DeployDir)"
+          ContinueOnError="true">
+      <Output TaskParameter="CopiedFiles" ItemName="ActuallyCopied" />
+    </Copy>
+
+    <Copy SourceFiles="@(DeployLast)"
+          DestinationFolder="$(DeployDir)"
+          ContinueOnError="true">
+      <Output TaskParameter="CopiedFiles" ItemName="ActuallyCopied" />
+    </Copy>
+
+    <Warning Condition="'@(ActuallyCopied)' == ''"
+             Text="配置できませんでした。ゲームが DLL を掴んでいる可能性があります。もう一度ビルドしてください。" />
+    <Message Condition="'@(ActuallyCopied)' != ''"
+             Importance="high"
+             Text="配置しました: $(DeployDir)" />
+
+    <!--
+      manifest が置けたかを必ず確かめる。
+      DLL だけが置かれていると Dalamud の一覧に出ず、
+      「入れたのに出てこない」という分かりにくい形で失敗する。
+      成否を黙って見逃さないよう、ここで明示的に検査する。
+    -->
+    <Warning Condition="!Exists('$(DeployDir)$(AssemblyName).json')"
+             Text="manifest（$(AssemblyName).json）が配置されていません。このままでは Dalamud の一覧に出ません。" />
+  </Target>
+</Project>
