@@ -73,6 +73,12 @@ public sealed class MainWindow : Window, IDisposable
     /// <summary>導入済みの一覧を読めなかった理由（読めたら null）。</summary>
     private string? pluginListError;
 
+    /// <summary>「GBR の画面を開く」で開けなかった理由（開けたら null）。</summary>
+    private string? gbrOpenError;
+
+    /// <summary>左の一覧の「必要なプラグイン」の背景の青（霊砂・クリスタルの見出しの青と同じ）。</summary>
+    private static readonly Vector4 RequiredPluginsBlue = new(0.16f, 0.48f, 0.80f, 1f);
+
     public MainWindow(
         Configuration config,
         RelayController relay,
@@ -139,14 +145,40 @@ public sealed class MainWindow : Window, IDisposable
 
     private void DrawLeftPane()
     {
-        // 一番上に「必要なプラグイン」（要望：必要なプラグインが分かるように、分かりやすい場所へ）。
-        // 足りなければ数を添える。必須（GBR）が使えなければ赤、ほかが使えなければ黄色。
         this.RefreshPluginStates();
-        var unavailable = RequiredPlugins.Unavailable(this.pluginStates);
-        var labelColor = RequiredPlugins.RequiredUnavailable(this.pluginStates) ? ImGuiColors.DalamudRed : ImGuiColors.DalamudYellow;
-        using (ImRaii.PushColor(ImGuiCol.Text, labelColor, unavailable > 0))
+
+        // 一番上に GBR の画面を呼び出すボタン（要望「ワンクリックで GBR メニューを呼び出せるボタン」）。
+        // Dalamud の公式の口（IExposedPlugin.OpenMainUi）で開く。GBR はこの口に開閉の切り替えを登録しているので、開いていれば閉じる。
+        var gbrLoaded = this.pluginStates.Any(s => s.Entry.Need == RequiredPlugins.Need.Required && s.Status == RequiredPlugins.Status.Loaded);
+        using (ImRaii.Disabled(!gbrLoaded))
         {
-            if (ImGui.Selectable(RequiredPlugins.LeftLabel(unavailable) + "##leftPlugins", this.selected == RequiredPluginsKey))
+            if (ImGui.Button("GBR の画面を開く##openGbr", new Vector2(-1, 0)))
+                this.gbrOpenError = RequiredPlugins.OpenMainUi(Svc.PluginInterface.InstalledPlugins, "GatherBuddyReborn", "GatherBuddy Reborn");
+        }
+
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(gbrLoaded
+                ? "GatherBuddy Reborn のメイン画面を開きます（開いているときに押すと閉じます）。"
+                : "GatherBuddy Reborn が読み込まれていません。");
+
+        if (this.gbrOpenError is { } openError)
+            ImGui.TextColored(ImGuiColors.DalamudYellow, openError);
+
+        ImGui.Spacing();
+
+        // その下に「必要なプラグイン」（要望：必要なプラグインが分かるように、分かりやすい場所へ）。
+        // 要望：この項目だけ背景を青にして目立たせる。足りなければ数を添え、必須（GBR）が使えなければ橙、ほかが使えなければ黄色の文字。
+        var unavailable = RequiredPlugins.Unavailable(this.pluginStates);
+        var isSelected = this.selected == RequiredPluginsKey;
+        var textColor = unavailable == 0 ? new Vector4(1f, 1f, 1f, 1f)
+            : RequiredPlugins.RequiredUnavailable(this.pluginStates) ? ImGuiColors.DalamudOrange : ImGuiColors.DalamudYellow;
+        using (ImRaii.PushColor(ImGuiCol.Header, RequiredPluginsBlue with { W = isSelected ? 1f : 0.6f })
+                   .Push(ImGuiCol.HeaderHovered, RequiredPluginsBlue with { W = 0.85f })
+                   .Push(ImGuiCol.HeaderActive, RequiredPluginsBlue)
+                   .Push(ImGuiCol.Text, textColor))
+        {
+            // 背景を見せるため、選んでいなくても「選んだ行」として描く（押したかは戻り値で見る）。
+            if (ImGui.Selectable(RequiredPlugins.LeftLabel(unavailable) + "##leftPlugins", true))
                 this.Select(RequiredPluginsKey);
         }
 
@@ -300,8 +332,8 @@ public sealed class MainWindow : Window, IDisposable
 
         try
         {
-            this.pluginStates = RequiredPlugins.Check(Svc.PluginInterface.InstalledPlugins
-                .Select(p => (p.InternalName, p.IsLoaded, (string?)p.Version.ToString())));
+            // 版の無いプラグイン・読めないプラグインがあっても、ほかは読む（RequiredPlugins.Read。2026-10-06）。
+            this.pluginStates = RequiredPlugins.Check(RequiredPlugins.Read(Svc.PluginInterface.InstalledPlugins));
             this.pluginListError = null;
         }
         catch (Exception ex)

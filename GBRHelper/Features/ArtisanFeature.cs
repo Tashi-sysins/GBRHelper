@@ -31,6 +31,9 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
     /// <summary>プルダウンの何も選んでいないときの表示（指定の文）。</summary>
     public const string Placeholder = "--Crafting Listsを選択して下さい--";
 
+    /// <summary>ボタンの下の案内（指定の文）。</summary>
+    public const string GbrImportNote = "※Auto-Gatherタブ内の「Artisanから読み込む」からでも取り込めます";
+
     /// <summary>GBR のリストの名前の頭（ほかの GBRHelper のリストと同じく GBRHelper_ で始める）。</summary>
     public const string ListNamePrefix = "GBRHelper_製作_";
 
@@ -136,6 +139,10 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
             UnvisitedFeature.ButtonTooltip(block,
                 "選んだ Crafting List を作るのに要る素材のうち、GBR で採れる品を GBR の Auto-Gather に追加します。\n"
                 + $"リストの名前は「{ListNamePrefix}（Crafting List の名前）」。同じ Crafting List で押し直すと、そのリストを作り直します。");
+
+        // GBR 自身の取り込みの場所の案内（指定の文）。
+        using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey))
+            ImGui.TextWrapped(GbrImportNote);
 
         if (this.result.Length != 0)
             ImGui.TextWrapped(this.result);

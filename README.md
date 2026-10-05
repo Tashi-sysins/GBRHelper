@@ -31,7 +31,7 @@ https://raw.githubusercontent.com/Tashi-sysins/Tashi-sysins-repo/main/repo.json
 
 ## 必要なプラグイン
 
-画面の左上「必要なプラグイン」で、導入されているかを確かめられる（足りなければ数と色で知らせる）。
+画面の左の一覧の「必要なプラグイン」（青い帯）で、導入されているかを確かめられる（足りなければ数と色で知らせる）。
 
 | プラグイン | どのくらい要るか | 使う機能 |
 |---|---|---|
@@ -50,6 +50,8 @@ https://raw.githubusercontent.com/Tashi-sysins/Tashi-sysins-repo/main/repo.json
 |---|---|
 | `/gbrhelper`（`/gbh`） | 画面の開閉 |
 | `/gbrhelper now` | 次の採集の切れ目で回収へ向かう（精選中は完了後） |
+
+GBRHelper の画面の左上の「GBR の画面を開く」で、GBR の画面を呼び出せる（開いているときに押すと閉じる）。
 
 ## 設定の保存
 
@@ -78,6 +80,14 @@ setx GBRH_DEPLOY_DIR "D:\MyPlugins\GBRHelper\"
 ```
 
 ## 更新履歴
+
+### 0.3.0.1
+
+- 左の一覧の一番上に「GBR の画面を開く」ボタンを足した
+- 「必要なプラグイン」の背景を青にして目立たせた
+- 版の書かれていないプラグインが入っていると、「必要なプラグイン」が「導入済みのプラグインの一覧を読めません」になって何も出なかったのを直した
+- Crafting Lists の画面に、GBR の Auto-Gather タブの「Artisanから読み込む」でも取り込める旨の案内を足した
+- プラグインの一覧に出る説明文を短くした
 
 ### 0.3.0.0
 
