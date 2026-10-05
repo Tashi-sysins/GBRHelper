@@ -46,20 +46,39 @@ public static class ManagedListPersistence
     /// 同じ数のときは名前で決まるので、上とは数えない（GBR の MoveList で動かすと必ず小さくなる）。
     /// </summary>
     public static bool? IsFirstInFolder(string json, string name, string tag)
+        => AreFirstInFolder(json, [name], tag);
+
+    /// <summary>
+    /// 管理リスト（names の順）が、それぞれの場所（FolderPath）で一番上からこの順に並んで保存されているか。1 つでも 1 つに決まらなければ null。
+    /// 同じ場所の管理リストは names の順に Order が小さくなっていて、その場所のほかのどのリストよりも Order が小さいこと
+    /// （2026-10-06 霊砂とクリスタルを同時に登録できるようにした。霊砂のリストを一番上、クリスタルのリストをその下に置く）。
+    /// </summary>
+    public static bool? AreFirstInFolder(string json, IReadOnlyList<string> names, string tag)
     {
         using var doc = JsonDocument.Parse(json);
         var rows = doc.RootElement.EnumerateArray().ToArray();
-        var owned = Enumerable.Range(0, rows.Length).Where(i =>
-            rows[i].GetProperty("Name").GetString() == name &&
-            (rows[i].GetProperty("Description").GetString() ?? "").Contains(tag, StringComparison.Ordinal)).ToArray();
-        if (owned.Length != 1)
-            return null;
-        var me = rows[owned[0]];
-        var folder = FolderPath(me);
-        var order = Order(me);
-        return Enumerable.Range(0, rows.Length)
-            .Where(i => i != owned[0] && FolderPath(rows[i]) == folder)
-            .All(i => Order(rows[i]) > order);
+        var owned = new List<int>();
+        foreach (var name in names)
+        {
+            var found = Enumerable.Range(0, rows.Length).Where(i =>
+                rows[i].GetProperty("Name").GetString() == name &&
+                (rows[i].GetProperty("Description").GetString() ?? "").Contains(tag, StringComparison.Ordinal)).ToArray();
+            if (found.Length != 1)
+                return null;
+            owned.Add(found[0]);
+        }
+
+        foreach (var group in owned.GroupBy(i => FolderPath(rows[i])))
+        {
+            var mine = group.Select(i => Order(rows[i])).ToArray(); // names の順
+            if (mine.Zip(mine.Skip(1)).Any(p => p.First >= p.Second))
+                return false;
+            var others = Enumerable.Range(0, rows.Length).Where(i => !owned.Contains(i) && FolderPath(rows[i]) == group.Key);
+            if (others.Any(i => Order(rows[i]) <= mine[^1]))
+                return false;
+        }
+
+        return true;
 
         static string FolderPath(JsonElement row)
             => row.TryGetProperty("FolderPath", out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() ?? "" : "";

@@ -451,21 +451,27 @@ public sealed class GbrAutoGatherListAccess
     /// AddList は新しいリストを一番下（Order＝最大＋1）に置く（AutoGatherListsManager.OnFileSystemChanged）。
     /// 【動かし方】GBR の MoveList(動かすリスト, 入れる位置のリスト, false)（ManipPreset.cs 623-640）で Order を書き換えて保存する。
     /// MoveList は採る順の一覧（ActiveItems）を作り直さない（GBR の画面で並べ替えたときも同じ）ので、続けて SetActiveItems(false) を呼ぶ。
-    /// 保存ファイルで、同じ場所のほかのリストより Order が小さいことを確かめる。
+    /// 保存ファイルで、同じ場所のほかのリストより Order が小さいことを確かめる（1 本だけの MoveManagedListsToTop）。
     /// </summary>
     public bool MoveManagedListToTop(string listName, string managementTag, out bool moved)
+        => this.MoveManagedListsToTop([listName], managementTag, out moved);
+
+    /// <summary>
+    /// Helper が作った管理リスト（listNames の順）を、それぞれの場所（フォルダー）で一番上からこの順に並べる
+    /// （2026-10-06 霊砂とクリスタルを同時に登録できるようにした。霊砂のリストを一番上、クリスタルのリストをその下）。
+    /// すでにその並びなら何もしない（moved＝false）。1 本ずつ別々に一番上へ動かすと、2 本が互いに一番上を取り合って保存し続けるため、まとめて扱う。
+    /// 【動かし方】後ろのリストから順に、その時点の一番上のリストの位置へ MoveList(動かすリスト, 一番上のリスト, false) で入れる
+    /// （最後に動かした先頭のリストが一番上になる）。すでに一番上（ほかのどれよりも Order が小さい）のリストは動かさない
+    /// （MoveList は、上にあるリストを動かすと「下へ動かした」とみなして、入れる位置の 1 つ下に入れるため）。
+    /// 保存ファイルで並びを確かめる（ManagedListPersistence.AreFirstInFolder）。
+    /// </summary>
+    public bool MoveManagedListsToTop(IReadOnlyList<string> listNames, string managementTag, out bool moved)
     {
         moved = false;
         try
         {
             if (this.Manager() is not { } mgr)
                 return false;
-
-            if (this.FindOwnedManagedList(mgr, listName, managementTag) is not { } owned)
-            {
-                this.LastError = $"管理リスト「{listName}」が見つかりません";
-                return false;
-            }
 
             var fileSystem = mgr.GetType().GetProperty("FileSystem", PubInst)?.GetValue(mgr);
             var tryGet = fileSystem?.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "TryGetValue" && m.GetParameters().Length == 2);
@@ -475,43 +481,69 @@ public sealed class GbrAutoGatherListAccess
                 return false;
             }
 
-            var args = new object?[] { owned, null };
-            if (tryGet.Invoke(fileSystem, args) is not true || args[1] is not { } leaf)
+            var leaves = new List<object>();
+            foreach (var listName in listNames)
             {
-                this.LastError = $"GBR のリストの並びに管理リスト「{listName}」が見つかりません";
-                return false;
+                if (this.FindOwnedManagedList(mgr, listName, managementTag) is not { } owned)
+                {
+                    this.LastError = $"管理リスト「{listName}」が見つかりません";
+                    return false;
+                }
+
+                var args = new object?[] { owned, null };
+                if (tryGet.Invoke(fileSystem, args) is not true || args[1] is not { } leaf)
+                {
+                    this.LastError = $"GBR のリストの並びに管理リスト「{listName}」が見つかりません";
+                    return false;
+                }
+
+                leaves.Add(leaf);
             }
 
-            var parent = leaf.GetType().GetProperty("Parent", PubInst)?.GetValue(leaf);
-            var siblings = (parent?.GetType().GetMethod("GetLeaves", PubInst, Type.EmptyTypes)?.Invoke(parent, null) as IEnumerable)?.Cast<object>().ToArray();
-            if (siblings is null)
+            var move = mgr.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "MoveList" && m.GetParameters() is { Length: 3 } p
+                && leaves.Count > 0 && p[0].ParameterType.IsInstanceOfType(leaves[0]) && p[2].ParameterType == typeof(bool));
+            var setActive = mgr.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "SetActiveItems" && m.GetParameters() is { Length: 1 } p
+                && p[0].ParameterType == typeof(bool));
+
+            // 場所（親のフォルダー）ごとに並べる。GBR の MoveList は同じ場所のリストどうしでしか動かせない。
+            foreach (var group in leaves.GroupBy(ParentOf))
             {
-                this.LastError = "GBR のリストの並び（同じ場所のリスト）を読めません";
-                return false;
+                var mine = group.ToArray(); // listNames の順
+                var siblings = (group.Key.GetType().GetMethod("GetLeaves", PubInst, Type.EmptyTypes)?.Invoke(group.Key, null) as IEnumerable)?.Cast<object>().ToArray();
+                if (siblings is null)
+                {
+                    this.LastError = "GBR のリストの並び（同じ場所のリスト）を読めません";
+                    return false;
+                }
+
+                if (InOrder(mine, siblings))
+                    continue;
+
+                if (move is null || setActive is null)
+                {
+                    this.LastError = "GBR の AutoGatherListsManager.MoveList / SetActiveItems が見つかりません（版の違いを確認してください）";
+                    return false;
+                }
+
+                for (var i = mine.Length - 1; i >= 0; i--)
+                {
+                    var leaf = mine[i];
+                    var others = siblings.Where(x => !ReferenceEquals(x, leaf)).ToArray();
+                    if (others.Length == 0 || others.All(x => OrderOf(x) > OrderOf(leaf)))
+                        continue; // もう一番上
+                    move.Invoke(mgr, [leaf, others.MinBy(OrderOf)!, false]);
+                    moved = true;
+                }
             }
 
-            var mine = OrderOf(leaf);
-            var others = siblings.Where(x => !ReferenceEquals(x, leaf)).ToArray();
-            if (others.All(x => OrderOf(x) > mine))
+            if (!moved)
             {
                 this.LastError = string.Empty;
                 return true;
             }
 
-            var top = others.MinBy(OrderOf)!;
-            var move = mgr.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "MoveList" && m.GetParameters() is { Length: 3 } p
-                && p[0].ParameterType.IsInstanceOfType(leaf) && p[2].ParameterType == typeof(bool));
-            var setActive = mgr.GetType().GetMethods(PubInst).FirstOrDefault(m => m.Name == "SetActiveItems" && m.GetParameters() is { Length: 1 } p
-                && p[0].ParameterType == typeof(bool));
-            if (move is null || setActive is null)
-            {
-                this.LastError = "GBR の AutoGatherListsManager.MoveList / SetActiveItems が見つかりません（版の違いを確認してください）";
-                return false;
-            }
-
-            move.Invoke(mgr, [leaf, top, false]);
-            setActive.Invoke(mgr, [false]);
-            moved = true;
+            // MoveList は採る順の一覧（ActiveItems）を作り直さない。
+            setActive!.Invoke(mgr, [false]);
 
             var path = this.AutoGatherListsSaveFile();
             if (path is null || !File.Exists(path))
@@ -520,9 +552,9 @@ public sealed class GbrAutoGatherListAccess
                 return false;
             }
 
-            if (ManagedListPersistence.IsFirstInFolder(File.ReadAllText(path), listName, managementTag) != true)
+            if (ManagedListPersistence.AreFirstInFolder(File.ReadAllText(path), listNames, managementTag) != true)
             {
-                this.LastError = $"管理リスト「{listName}」を一番上へ動かしたのを保存できていません";
+                this.LastError = $"管理リスト「{string.Join("」「", listNames)}」を一番上へ動かしたのを保存できていません";
                 return false;
             }
 
@@ -531,7 +563,7 @@ public sealed class GbrAutoGatherListAccess
         }
         catch (Exception ex)
         {
-            this.LastError = $"管理リスト「{listName}」を一番上へ動かせません: {ex.GetBaseException().Message}";
+            this.LastError = $"管理リスト「{string.Join("」「", listNames)}」を一番上へ動かせません: {ex.GetBaseException().Message}";
             return false;
         }
 
@@ -541,6 +573,20 @@ public sealed class GbrAutoGatherListAccess
                && list.GetType().GetProperty("Order", PubInst)?.GetValue(list) is int order
                 ? order
                 : throw new InvalidOperationException("GBR のリストの並びの番号（Order）を読めません");
+
+        static object ParentOf(object leaf)
+            => leaf.GetType().GetProperty("Parent", PubInst)?.GetValue(leaf)
+               ?? throw new InvalidOperationException("GBR のリストの場所（Parent）を読めません");
+
+        // 管理リストが mine の順に Order が小さくなっていて、ほかのどのリストよりも Order が小さいか。
+        static bool InOrder(object[] mine, object[] siblings)
+        {
+            for (var i = 0; i + 1 < mine.Length; i++)
+                if (OrderOf(mine[i]) >= OrderOf(mine[i + 1]))
+                    return false;
+            var last = OrderOf(mine[^1]);
+            return siblings.Where(x => !mine.Any(m => ReferenceEquals(m, x))).All(x => OrderOf(x) > last);
+        }
     }
 
     // ------------------------------------------------------------------

@@ -37,8 +37,10 @@ public sealed class SandChoice
 ///   （GBR は鞄の空きが少ないときや待ち時間に精選する。全部精選しないと、空きが少ないときに 1 種類しか精選しない）。
 ///   さらに足りない間は、採集の切れ目で本プラグインからも精選を頼み、数を早く反映する。
 /// 【GBR の設定を戻す】開始時に変えた GBR の設定（並べ替え・精選・全部精選）は、止めたときに元に戻す（利用者が途中で変えていたら戻さない）。
-/// 【1 度に 1 つ】霊砂とクリスタルは同時には登録しない（利用者の手順：替えるときは停止してから追加し直す）。
-///   ただし、登録していない方の欲しい物・数は、登録中でも選んでおける（要望「どちらも選べるように・柔軟に」）。
+/// 【同時に 2 つ】霊砂とクリスタルは、それぞれ 1 つずつ同時に登録できる（要望「霊砂のプリセットを設定した時、
+///   クリスタルのプリセットが設定出来ないのは辞めて。どっちも設定出来るように」。前は 1 度に 1 つだった）。登録は別々に止められる。
+///   GBR の設定の書き換えと戻すための記録は 2 つで共有し、最初の登録で書き換え、最後の登録を止めたときに戻す（Run・TimedRunRules）。
+///   同じ種類を替えるときは、その種類を止めてから追加し直す（利用者の手順）。
 /// 【ほかのリスト】ほかの Auto-Gather リストが有効でも追加できる。追加したリストは Auto-Gather の一番上へ動かし、
 ///   登録中も一番上に保つ（要望「ほかのリストを無効にさせるのは不便。自動で一番上に入れる」。
 ///   前は上から順に採らせるため、ほかのリストをすべて無効にしないと押せなかった）。
@@ -67,8 +69,8 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     /// <summary>右ペインは AutoDuty と同じく見出しから始める（機能名と説明は左ペインのマウスオーバーで出る）。</summary>
     public bool ShowHeader => false;
 
-    public bool Running => session;
-    public bool BlocksRelay => session && reduction.Waiting;
+    public bool Running => AnyActive;
+    public bool BlocksRelay => AnyActive && reduction.Waiting;
 
     /// <summary>追加したあとに出す案内（霊砂。指定の文）。</summary>
     public const string SessionGuide =
@@ -117,36 +119,58 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     private readonly MaterialInventory inventory = new(lists);
     private readonly AllaganRetainerCounter retainers = new();
 
-    // ---- 登録中（session）の中身 ----
-    private bool crystalSession;
-    private string listName = SandListName;
-    private IReadOnlyList<TimedPlan.Goal> goals = [];
+    // ---- 登録中の中身（霊砂・クリスタルそれぞれ。2026-10-06 から同時に登録できる） ----
 
-    /// <summary>目標（Goal.ItemId）ごとに数える品。霊砂はその霊砂だけ、属性はクリスタルとクラスター（少ない方で判定）。</summary>
-    private Dictionary<uint, uint[]> countIds = [];
+    /// <summary>
+    /// 登録 1 つ分（霊砂・クリスタルそれぞれ 1 つ）。リスト・目標・原料・無効にした原料・止める印は登録ごとに持つ。
+    /// GBR の設定の書き換えと戻すための記録（Configuration.TimedRecoveryTag ほか）、精選の待ち（GBR の精選は鞄の中を全部精選するので 1 つ）、
+    /// 状態の文は 2 つで共有する。
+    /// </summary>
+    private sealed class Run(bool crystal)
+    {
+        public readonly bool Crystal = crystal;
+        public string ListName => this.Crystal ? CrystalListName : SandListName;
+        public string KindName => this.Crystal ? "クリスタル・クラスター" : "霊砂";
+        public bool Active;
+        public bool StopRequested;
+        public string StopReason = "停止しました。";
+        public IReadOnlyList<TimedPlan.Goal> Goals = [];
 
-    private IReadOnlyList<AethersandRecipe> sessionRecipes = [];
+        /// <summary>目標（Goal.ItemId）ごとに数える品。霊砂はその霊砂だけ、属性はクリスタルとクラスター（少ない方で判定）。</summary>
+        public Dictionary<uint, uint[]> CountIds = [];
+
+        public IReadOnlyList<AethersandRecipe> Recipes = [];
+        public List<(uint ItemId, uint Quantity)> Written = [];
+
+        /// <summary>このリストの原料（精選の前後で数える品）。</summary>
+        public HashSet<uint> Sources = [];
+
+        /// <summary>目標に達したので、こちらが無効にした原料。</summary>
+        public readonly HashSet<uint> DisabledByUs = [];
+
+        /// <summary>こちらが無効にしたあと、利用者が GBR で有効に戻した原料（もう無効にしない）。</summary>
+        public readonly HashSet<uint> UserKept = [];
+
+        /// <summary>まだ目標に届いていない物があるか（直近の見張りの結果。精選を頼むかに使う）。</summary>
+        public bool Short;
+    }
+
+    private readonly Run sandRun = new(false);
+    private readonly Run crystalRun = new(true);
+    private Run[] Runs => [this.sandRun, this.crystalRun];
+    private bool AnyActive => this.sandRun.Active || this.crystalRun.Active;
+
+    /// <summary>登録中の全部の原料（精選できるか・精選の前後で数える品）。</summary>
+    private HashSet<uint> ActiveSources() => Runs.Where(r => r.Active).SelectMany(r => r.Sources).ToHashSet();
+
     private IReadOnlyList<GatherableCatalog.Entry> eligible = [];
-    private List<(uint ItemId, uint Quantity)> written = [];
-    private HashSet<uint> allowedReduction = [];
-
-    /// <summary>目標に達したので、こちらが無効にした原料。</summary>
-    private readonly HashSet<uint> disabledByUs = [];
-
-    /// <summary>こちらが無効にしたあと、利用者が GBR で有効に戻した原料（もう無効にしない）。</summary>
-    private readonly HashSet<uint> userKept = [];
-
-    private bool session, stopRequested;
     private readonly ReductionWait reduction = new();
     private DateTime nextLoad, nextPoll, nextRowsRefresh;
     private RecoveryRetry recoveryRetry = new();
     private Dictionary<uint, ReductionStock>? beforeReduction;
     private object? autoInstance;
     private ulong character;
-    private string stopReason = "停止しました。";
     private string status = "";
-
-    private string KindName => crystalSession ? "クリスタル・クラスター" : "霊砂";
 
     private void Load()
     {
@@ -270,11 +294,17 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         // 動いている間の状態・前回の復元・結果は、見出しを閉じていても分かるように見出しの外に出す。
         ImGui.Spacing();
         ImGui.Separator();
-        if (session)
+        // 霊砂とクリスタルは同時に登録できるので、止めるボタンは登録ごとに出す（どちらを止めるかが分かるように名前を前に置く。2026-10-06）。
+        foreach (var run in Runs.Where(r => r.Active))
         {
-            if (ImGui.Button("停止して管理リストを削除")) { stopReason = "利用者の操作で停止しました。"; stopRequested = true; }
+            using var id = ImRaii.PushId(run.Crystal ? "stopCrystal" : "stopSand");
+            ImGui.TextUnformatted($"{run.KindName}：");
+            ImGui.SameLine();
+            if (ImGui.Button("停止して管理リストを削除"))
+                RequestUserStop(run);
         }
-        else if (config.TimedRecoveryTag.Length != 0)
+
+        if (!AnyActive && config.TimedRecoveryTag.Length != 0)
         {
             ImGui.TextWrapped("前回の管理リスト・GBR の設定の復元が残っています。GBR の自動採集を OFF にしてから押してください。");
             if (ImGui.Button("前回のリストを削除し設定を戻す")) Try(Recover);
@@ -283,9 +313,9 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         if (status.Length != 0)
             ImGui.TextWrapped(status);
 
-        // 追加したあとの案内（指定の文。「（原料○○品）」の文の下に改行して続ける）。
-        if (session)
-            ImGui.TextWrapped(crystalSession ? CrystalSessionGuide : SessionGuide);
+        // 追加したあとの案内（指定の文。「（原料○○品）」の文の下に改行して続ける）。登録しているものの分だけ出す。
+        foreach (var run in Runs.Where(r => r.Active))
+            ImGui.TextWrapped(run.Crystal ? CrystalSessionGuide : SessionGuide);
     }
 
     private void DrawSands()
@@ -302,8 +332,8 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
         // 縦 2 列。左の列を上から下へ、続きを右の列へ（GBR のリストもこの順＝左の列の上から）。
         var perColumn = (rows.Count + 1) / 2;
-        // 霊砂を登録している間だけ止める（クリスタルを登録中でも、次に使う霊砂は選んでおける）。
-        using (ImRaii.Disabled(session && !crystalSession))
+        // 霊砂を登録している間だけ止める（クリスタルの登録とは関係なく選べる・追加できる）。
+        using (ImRaii.Disabled(sandRun.Active))
         using (var table = ImRaii.Table("##sands", 2, ImGuiTableFlags.SizingStretchSame))
         {
             if (table)
@@ -345,8 +375,8 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
         // 2 列：左に ファイア・アイス・ウィンド、右に アース・ライトニング・ウォーター（クリスタルの品番の順で 3 つずつ）。
         var perColumn = (elements.Count + 1) / 2;
-        // クリスタルを登録している間だけ止める（霊砂を登録中でも、次に使う属性は選んでおける）。
-        using (ImRaii.Disabled(session && crystalSession))
+        // クリスタルを登録している間だけ止める（霊砂の登録とは関係なく選べる・追加できる）。
+        using (ImRaii.Disabled(crystalRun.Active))
         using (var table = ImRaii.Table("##crystals", 2, ImGuiTableFlags.SizingStretchSame))
         {
             if (table)
@@ -386,7 +416,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
     /// <summary>
     /// 「Auto-Gatherに追加」の説明の 2 文目（指定の文。ほかの説明は要望で消した）。
-    /// 「霊砂とクリスタルは同時には登録できません。…」の一文も、要望で消した（同時に登録できないことは変わらない）。
+    /// 「霊砂とクリスタルは同時には登録できません。…」の一文も、要望で消した。いまは霊砂とクリスタルを同時に登録できる。
     /// </summary>
     public const string AddButtonNotes =
         "GBRの次の設定を変更します「詳細→精選を使う＋いつも全部精選する」「詳細→品目の並べ方→なし」";
@@ -406,9 +436,11 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         // 手で採っている最中（GBR は止まっている）は押せる（要望「自動採取中は出来なくていい、単純に採取中は設定出来ても問題ない」）。
         if (IsAutoGathering())
             return GatheringBlockText;
-        if (session)
-            return $"{KindName}の管理リストを登録中です。替えるときは「停止して管理リストを削除」を押してください";
-        if (config.TimedRecoveryTag.Length != 0)
+        // 同じ種類を登録している間だけ押せない（もう片方の登録とは関係なく押せる。2026-10-06）。
+        var run = crystal ? crystalRun : sandRun;
+        if (run.Active)
+            return $"{run.KindName}の管理リストを登録中です。替えるときは「停止して管理リストを削除」を押してください";
+        if (config.TimedRecoveryTag.Length != 0 && !AnyActive)
             return "前回の管理リスト・GBR の設定の復元が残っています（下の「前回のリストを削除し設定を戻す」を押してください）";
         if (Svc.PlayerState.ContentId == 0)
             return "ログインしていません";
@@ -453,7 +485,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             UnvisitedFeature.ButtonTooltip(block, tooltip, block == GatheringBlockText ? ImGuiColors.DalamudOrange : null);
 
         ImGui.SameLine();
-        using (ImRaii.Disabled(session))
+        using (ImRaii.Disabled(AnyActive))
         {
             if (ImGui.Button("一覧を読み直す" + id + "reload"))
                 Try(Load);
@@ -551,10 +583,11 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     // ------------------------------------------------------------------
     // 登録
 
-    /// <summary>登録の前に確かめること（両方共通）。</summary>
-    private void CheckBeforeStart()
+    /// <summary>登録の前に確かめること（両方共通）。もう片方が登録中でも始められる（2026-10-06）。</summary>
+    private void CheckBeforeStart(Run run)
     {
-        if (config.TimedRecoveryTag.Length != 0) throw new InvalidOperationException("前回の設定を復元してから開始してください");
+        if (run.Active) throw new InvalidOperationException($"{run.KindName}の管理リストを登録中です");
+        if (config.TimedRecoveryTag.Length != 0 && !AnyActive) throw new InvalidOperationException("前回の設定を復元してから開始してください");
         if (gbr.IsAutoGatherEnabled() != false || busy() || Svc.PlayerState.ContentId == 0)
             throw new InvalidOperationException("GBR の自動採集とほかの自動処理を止めてから追加してください");
         Load(); access.CheckContract();
@@ -566,7 +599,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
     private void StartSand()
     {
-        CheckBeforeStart();
+        CheckBeforeStart(sandRun);
         if (recipeError.Length != 0) throw new InvalidOperationException(recipeError);
 
         var choice = Choice(config.SandChoices);
@@ -581,18 +614,18 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         var sandGoals = chosen.Select(r => new TimedPlan.Goal(r.Id, (uint)SandQuantity(choice, r.Id))).ToArray();
         var sandRecipes = recipes.Where(r => chosen.Any(c => c.Id == r.OutputId) && eligible.Any(e => e.ItemId == r.SourceId)).ToArray();
         var counts = sandGoals.ToDictionary(g => g.ItemId, g => new[] { g.ItemId });
-        allowedReduction = sandRecipes.Select(r => r.SourceId).ToHashSet();
+        var sourceIds = sandRecipes.Select(r => r.SourceId).ToHashSet();
         var held = ReadHeld(sandGoals, counts);
-        var entries = TimedPlan.Build(eligible, sandGoals, sandRecipes, held, ReadSources());
+        var entries = TimedPlan.Build(eligible, sandGoals, sandRecipes, held, ReadSources(sourceIds));
         if (entries.Count == 0) throw new InvalidOperationException("選んだ霊砂はすべて目標数を持っています");
 
-        Begin(false, SandListName, entries, sandGoals, sandRecipes, counts,
+        Begin(sandRun, entries, sandGoals, sandRecipes, counts, sourceIds,
             $"Auto-Gather の一番上にリスト「{SandListName}」を追加しました（原料 {entries.Count} 品）。" + SkippedNote(picked.Where(r => !r.Gatherable).Select(r => r.Name)));
     }
 
     private void StartCrystal()
     {
-        CheckBeforeStart();
+        CheckBeforeStart(crystalRun);
         if (crystalError.Length != 0) throw new InvalidOperationException(crystalError);
 
         var choice = Choice(config.CrystalChoices);
@@ -621,9 +654,9 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         var crystalRecipesForSession = plan.Order.Select(id => new AethersandRecipe(elementOf[id], chosen.First(e => e.Key == elementOf[id]).Name, id)).ToArray();
         var goalsShort = allGoals.Where(g => short_.Any(e => e.Key == g.ItemId)).ToArray();
 
-        allowedReduction = plan.Order.ToHashSet();
+        var sourceIds = plan.Order.ToHashSet();
         // 原料の目標数は 200＋鞄の通常品の数（GBR は通常品も数えるため。TimedPlan.SourceTarget）。
-        var normal = ReductionInventory.NormalCounts(ReadSources(), plan.Order);
+        var normal = ReductionInventory.NormalCounts(ReadSources(sourceIds), plan.Order);
         var entries = plan.Order.Select(id => (id, TimedPlan.SourceTarget(normal[id]))).ToList();
 
         // 並びと、各原料が取る枠（ET）を状態の文に出す（何をどの時間に採るかが分かるように）。
@@ -633,7 +666,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             var element = chosen.First(e => e.Key == elementOf[id]).Name;
             return $"{byId[id].Name}（{element}・{(slots.Length == 0 ? "取れる枠なし" : slots)}）";
         }));
-        Begin(true, CrystalListName, entries, goalsShort, crystalRecipesForSession, counts,
+        Begin(crystalRun, entries, goalsShort, crystalRecipesForSession, counts, sourceIds,
             $"Auto-Gather の一番上にリスト「{CrystalListName}」を追加しました（原料 {entries.Count} 品）。\n並び：{layout}"
             + SkippedNote(picked.Where(e => !e.Gatherable).Select(e => e.Name)));
     }
@@ -642,30 +675,43 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
     private static string SkippedNote(IEnumerable<string> names)
         => names.ToArray() is { Length: > 0 } n ? $"\n「{string.Join("」「", n)}」は今は採れる原料が無いので入れていません。" : "";
 
-    /// <summary>登録を始める（両方共通）。GBR の設定を変える前に、戻すための記録を保存する。</summary>
-    private void Begin(bool crystal, string name, List<(uint ItemId, uint Quantity)> entries, IReadOnlyList<TimedPlan.Goal> sessionGoals,
-        IReadOnlyList<AethersandRecipe> sessionRecipeList, Dictionary<uint, uint[]> counts, string startedText)
+    /// <summary>
+    /// 登録を始める（霊砂・クリスタル共通）。最初の登録なら、GBR の設定を変える前に、戻すための記録を保存する。
+    /// 2 つ目の登録（もう片方が登録中）は、最初の登録の記録と GBR の設定をそのまま使い、リストを足すだけ（2026-10-06）。
+    /// </summary>
+    private void Begin(Run run, List<(uint ItemId, uint Quantity)> entries, IReadOnlyList<TimedPlan.Goal> sessionGoals,
+        IReadOnlyList<AethersandRecipe> sessionRecipeList, Dictionary<uint, uint[]> counts, HashSet<uint> sourceIds, string startedText)
     {
-        // 保存してから設定変更。途中失敗・アンロード後にも利用者が復元できる。
-        config.TimedRecoveryTag = $"{TagPrefix}[Character:{character}][Session:{Guid.NewGuid():N}]";
-        config.TimedOriginalSettings = GbrSettings.Keys.ToDictionary(k => k, access.ReadSetting);
-        config.TimedWrittenSettings = new(GbrSettings);
-        config.Save();
+        var first = !AnyActive;
+        if (first)
+        {
+            // 保存してから設定変更。途中失敗・アンロード後にも利用者が復元できる。
+            config.TimedRecoveryTag = $"{TagPrefix}[Character:{character}][Session:{Guid.NewGuid():N}]";
+            config.TimedOriginalSettings = GbrSettings.Keys.ToDictionary(k => k, access.ReadSetting);
+            config.TimedWrittenSettings = new(GbrSettings);
+            config.Save();
+        }
         try
         {
-            crystalSession = crystal; listName = name;
-            goals = sessionGoals; sessionRecipes = sessionRecipeList; countIds = counts;
+            run.Goals = sessionGoals; run.Recipes = sessionRecipeList; run.CountIds = counts; run.Sources = sourceIds;
+            // 2 つ目の登録でも書き直す（1 つ目の登録中に GBR で設定を変えていても、押したら説明どおりの設定にする。
+            // 書き直さないと、GBR を ON にした途端「GBR の設定が変更されたため停止します」で両方止まる）。戻す値は 1 つ目の前の値のまま。
             foreach (var setting in config.TimedWrittenSettings) access.SetSetting(setting.Key, setting.Value);
-            Write(entries);
-            autoInstance = access.Auto;
-            session = true; stopRequested = false; reduction.Cancel(); stopReason = "停止しました。";
-            disabledByUs.Clear(); userKept.Clear();
+            Write(run, entries);
+            if (first) { autoInstance = access.Auto; reduction.Cancel(); }
+            run.Active = true; run.StopRequested = false; run.StopReason = "停止しました。"; run.Short = true;
+            run.DisabledByUs.Clear(); run.UserKept.Clear();
             // 指定：この文の下に改行して案内（SessionGuide）を続ける。
             status = startedText;
         }
         catch (Exception startError)
         {
-            try { Recover(); }
+            try
+            {
+                if (first) Recover();
+                // 2 つ目の登録の失敗では、最初の登録のリストと GBR の設定はそのまま残し、このリストだけ消す。
+                else if (!lists.RemoveManagedList(run.ListName, config.TimedRecoveryTag)) throw new InvalidOperationException(lists.LastError);
+            }
             catch (Exception recoveryError)
             {
                 throw new InvalidOperationException($"開始失敗：{startError.GetBaseException().Message} / 復元も未完了：{recoveryError.GetBaseException().Message}");
@@ -682,17 +728,19 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         return goalList.ToDictionary(g => g.ItemId, g => counts[g.ItemId].Min(id => raw[id]));
     }
 
-    private Dictionary<uint, ReductionStock> ReadSources()
-        => GbrTimedAccess.CheckReductionInventory(allowedReduction);
+    private static Dictionary<uint, ReductionStock> ReadSources(IEnumerable<uint> ids)
+        => GbrTimedAccess.CheckReductionInventory(ids.ToHashSet());
 
-    private void Write(List<(uint ItemId, uint Quantity)> entries)
+    private void Write(Run run, List<(uint ItemId, uint Quantity)> entries)
     {
-        var result = lists.WriteManagedList(listName, config.TimedRecoveryTag, entries, true, false);
+        var result = lists.WriteManagedList(run.ListName, config.TimedRecoveryTag, entries, true, false);
         if (!result.Ok) throw new InvalidOperationException(result.Error);
-        written = entries;
+        run.Written = entries;
         // GBR は新しいリストを一番下に置くので、一番上へ動かす（ほかの有効なリストより先に原料を採らせる）。
-        if (!lists.MoveManagedListToTop(listName, config.TimedRecoveryTag, out _)) throw new InvalidOperationException(lists.LastError);
-        topMoveFailed = false;
+        // もう片方が登録中なら、霊砂のリストを一番上・クリスタルのリストをその下に並べる（TimedRunRules.ListOrder）。
+        var order = TimedRunRules.ListOrder(run == sandRun || sandRun.Active, run == crystalRun || crystalRun.Active, SandListName, CrystalListName);
+        if (!lists.MoveManagedListsToTop(order, config.TimedRecoveryTag, out _)) throw new InvalidOperationException(lists.LastError);
+        topMoveFailedFor = "";
     }
 
     /// <summary>画面に出す所持数（霊砂・クリスタル・クラスター）を、1 秒ごとに読み直す（鞄はゲームの更新の流れでしか読めないので Tick で読む）。</summary>
@@ -715,7 +763,8 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
 
     public void ResetCharacter()
     {
-        session = stopRequested = false; reduction.Cancel(); autoInstance = null; character = 0;
+        foreach (var run in Runs) { run.Active = false; run.StopRequested = false; }
+        reduction.Cancel(); autoInstance = null; character = 0;
         catalog = null; rows = []; elements = []; heldShown = [];
         pendingSand.Clear(); pendingCrystal.Clear(); retainers.Clear(); status = "";
         nextLoad = nextPoll = nextHeldRead = default; recoveryRetry = new();
@@ -744,7 +793,7 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         // マウスを乗せた品のリテイナーの数を読む（画面の表示だけ）。
         retainers.Tick();
 
-        if (!session)
+        if (!AnyActive)
         {
             if (character != Svc.PlayerState.ContentId)
             {
@@ -759,20 +808,20 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         {
             if (character != Svc.PlayerState.ContentId || !ReferenceEquals(autoInstance, access.TryGetAuto()))
             {
-                session = false; reduction.Cancel(); autoInstance = null; status = "キャラクターまたは GBR が変わったため停止しました。GBR の自動採集を OFF にして、前回の復元を押してください。";
+                foreach (var run in Runs) { run.Active = false; run.StopRequested = false; }
+                reduction.Cancel(); autoInstance = null; status = "キャラクターまたは GBR が変わったため停止しました。GBR の自動採集を OFF にして、前回の復元を押してください。";
                 return;
             }
             RefreshHeldShown();
             // 中断の観測は busy 判定より先。通知を受け取れなかった場合も OFF を見て待機を解除する。
             var observed = ObserveGathering(gbr.IsAutoGatherEnabled(), busy());
             if (observed is not { } on) return;
-            if (stopRequested)
-            {
-                if (!recoveryRetry.TryBegin(DateTime.UtcNow)) return;
-                if (!access.SafeBoundary) { status = "採集・精選の切れ目で停止します"; return; }
-                if (on) { gbr.SetAutoGatherEnabled(false); if (gbr.IsAutoGatherEnabled() != false) return; }
-                Recover(); session = false; reduction.Cancel(); status = stopReason + " 管理リストを削除し、GBR の設定を戻しました。"; return;
-            }
+
+            // 止める登録（「停止して管理リストを削除」・見張りで問題が見つかった）。止めない方の登録は続ける（TimedRunRules.Stop）。
+            foreach (var run in Runs.Where(r => r.Active && r.StopRequested).ToArray())
+                if (!StopRun(run, on))
+                    return;
+            if (!AnyActive) return;
 
             // GBR の自動採集が止まっている間は見張らない。リストは残す（要望：止めるのは「停止して管理リストを削除」）。
             if (!on) return;
@@ -781,69 +830,35 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
             if (reduction.Waiting)
             {
                 if (!reduction.Ready(DateTime.UtcNow, access.TaskBusy)) return;
-                var after = ReadSources();
+                // 精選の前と同じ原料で比べる（途中で片方の登録を止めても、前後で同じ品を数える）。
+                var after = ReadSources(beforeReduction!.Keys);
                 if (!ReductionInventory.DidReduce(beforeReduction!, after))
                     throw new InvalidOperationException("精選後も原料が減っていません。精選設定・解放状態を確認してください");
                 reduction.Cancel();
-                status = $"精選後の{KindName}の所持数を確かめました。";
+                status = "精選後の所持数を確かめました。";
             }
             if (!access.SafeBoundary) return;
             var snapshot = lists.ListAll() ?? throw new InvalidOperationException(lists.LastError);
-            var own = snapshot.SingleOrDefault(x => x.Name == listName && x.Description.Contains(config.TimedRecoveryTag, StringComparison.Ordinal))
-                ?? throw new InvalidOperationException("管理リストが見つからないため停止します");
-            // 品の有効・無効は利用者が変えてよい。品・数・予備リスト・リテイナー在庫の設定が変わったら止める。
-            if (own.Fallback || own.UsesRetainerInventory || !own.Entries.SequenceEqual(written))
-                throw new InvalidOperationException("管理リストの品・数が変更されたため停止します");
             foreach (var setting in config.TimedWrittenSettings)
                 if (access.ReadSetting(setting.Key) != setting.Value) throw new InvalidOperationException("GBR の設定が変更されたため停止します");
             KeepOnTop();
 
-            // こちらが無効にしたあと、利用者が GBR で有効に戻した原料は、もう無効にしない（指定「追加で欲しい場合は手動で有効化」）。
-            foreach (var id in disabledByUs.Where(id => !own.DisabledItems.Contains(id)).ToArray())
+            // 登録ごとに見張る。片方で問題が見つかっても、もう片方は続ける。
+            foreach (var run in Runs.Where(r => r.Active && !r.StopRequested))
             {
-                disabledByUs.Remove(id);
-                userKept.Add(id);
+                try { Watch(run, snapshot); }
+                catch (Exception ex) { RequestStop(run, ex.GetBaseException().Message); }
             }
-
-            var held = ReadHeld(goals, countIds);
-            var needed = TimedPlan.NeededSources(goals, sessionRecipes, held);
-            var turnedOff = new List<string>();
-            var turnedOn = new List<string>();
-            foreach (var (id, _) in written)
-            {
-                var enabledNow = !own.DisabledItems.Contains(id);
-                if (enabledNow && !needed.Contains(id) && !userKept.Contains(id))
-                {
-                    if (!lists.SetManagedItemEnabled(listName, config.TimedRecoveryTag, id, false)) throw new InvalidOperationException(lists.LastError);
-                    disabledByUs.Add(id);
-                    turnedOff.Add(SourceName(id));
-                }
-                else if (!enabledNow && needed.Contains(id) && disabledByUs.Contains(id))
-                {
-                    // 使うなどして目標を下回ったら、こちらが無効にした原料を有効に戻す。
-                    if (!lists.SetManagedItemEnabled(listName, config.TimedRecoveryTag, id, true)) throw new InvalidOperationException(lists.LastError);
-                    disabledByUs.Remove(id);
-                    turnedOn.Add(SourceName(id));
-                }
-            }
-
-            if (turnedOff.Count > 0)
-                status = $"目標数に達した{KindName}の原料を無効にしました：{string.Join("・", turnedOff)}";
-            if (turnedOn.Count > 0)
-                status = $"{KindName}が目標数を下回ったので、原料を有効に戻しました：{string.Join("・", turnedOn)}";
-            if (goals.All(g => held[g.ItemId] >= g.Target) && turnedOff.Count > 0)
-                status += snapshot.Any(x => x.Enabled && !ReferenceEquals(x, own))
-                    ? $"\n選んだ{KindName}がすべて目標数に達しました（ほかの有効なリストの品は続けて採ります）。"
-                    : $"\n選んだ{KindName}がすべて目標数に達しました（GBR は採るものが無くなると自動採集を止めます）。";
 
             // 精選：足りない物があり、精選できる原料（収集品）を持っていて、GBR が次に採る品が未知・伝説でないとき（採集を先にする）。
             // 鞄を読めないときは、見張りは続けて精選だけ飛ばす（リストは残す）。通常品や、選んでいない精選できる品があっても止めない（2026-10-06）。
-            if (goals.Any(g => held[g.ItemId] < g.Target))
+            // GBR の精選は鞄の中を全部精選するので、霊砂とクリスタルの原料をまとめて数える。
+            if (Runs.Any(r => r.Active && !r.StopRequested && r.Short))
             {
                 Dictionary<uint, ReductionStock> sources;
                 try
                 {
-                    sources = ReadSources();
+                    sources = ReadSources(ActiveSources());
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -860,31 +875,140 @@ public sealed class TimedFeature(Configuration config, LiveCatalogBuilder builde
         }
         catch (Exception ex)
         {
-            if (!stopRequested) stopReason = ex.GetBaseException().Message;
-            status = stopRequested ? stopReason + " 復元待ち：" + ex.GetBaseException().Message : stopReason;
-            stopRequested = true;
+            // 両方に関わる問題（GBR の設定が変わった・鞄を読めない・精選で減らないなど）は、登録を全部止める。
+            foreach (var run in Runs.Where(r => r.Active))
+                RequestStop(run, ex.GetBaseException().Message);
         }
     }
 
-    /// <summary>一番上へ戻すのに失敗した（この登録の間は試し直さない。保存し直しを繰り返さないため）。</summary>
-    private bool topMoveFailed;
+    /// <summary>登録 1 つの見張り（採集の切れ目で）：リストが変えられていないか、目標に達した原料を無効にする／下回ったら有効に戻す。</summary>
+    private void Watch(Run run, IReadOnlyList<GbrAutoGatherListAccess.ListSummary> snapshot)
+    {
+        var own = snapshot.SingleOrDefault(x => x.Name == run.ListName && x.Description.Contains(config.TimedRecoveryTag, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("管理リストが見つからないため停止します");
+        // 品の有効・無効は利用者が変えてよい。品・数・予備リスト・リテイナー在庫の設定が変わったら止める。
+        if (own.Fallback || own.UsesRetainerInventory || !own.Entries.SequenceEqual(run.Written))
+            throw new InvalidOperationException("管理リストの品・数が変更されたため停止します");
+
+        // こちらが無効にしたあと、利用者が GBR で有効に戻した原料は、もう無効にしない（指定「追加で欲しい場合は手動で有効化」）。
+        foreach (var id in run.DisabledByUs.Where(id => !own.DisabledItems.Contains(id)).ToArray())
+        {
+            run.DisabledByUs.Remove(id);
+            run.UserKept.Add(id);
+        }
+
+        var held = ReadHeld(run.Goals, run.CountIds);
+        var needed = TimedPlan.NeededSources(run.Goals, run.Recipes, held);
+        var turnedOff = new List<string>();
+        var turnedOn = new List<string>();
+        foreach (var (id, _) in run.Written)
+        {
+            var enabledNow = !own.DisabledItems.Contains(id);
+            if (enabledNow && !needed.Contains(id) && !run.UserKept.Contains(id))
+            {
+                if (!lists.SetManagedItemEnabled(run.ListName, config.TimedRecoveryTag, id, false)) throw new InvalidOperationException(lists.LastError);
+                run.DisabledByUs.Add(id);
+                turnedOff.Add(SourceName(id));
+            }
+            else if (!enabledNow && needed.Contains(id) && run.DisabledByUs.Contains(id))
+            {
+                // 使うなどして目標を下回ったら、こちらが無効にした原料を有効に戻す。
+                if (!lists.SetManagedItemEnabled(run.ListName, config.TimedRecoveryTag, id, true)) throw new InvalidOperationException(lists.LastError);
+                run.DisabledByUs.Remove(id);
+                turnedOn.Add(SourceName(id));
+            }
+        }
+
+        if (turnedOff.Count > 0)
+            status = $"目標数に達した{run.KindName}の原料を無効にしました：{string.Join("・", turnedOff)}";
+        if (turnedOn.Count > 0)
+            status = $"{run.KindName}が目標数を下回ったので、原料を有効に戻しました：{string.Join("・", turnedOn)}";
+        if (run.Goals.All(g => held[g.ItemId] >= g.Target) && turnedOff.Count > 0)
+            status += snapshot.Any(x => x.Enabled && !ReferenceEquals(x, own))
+                ? $"\n選んだ{run.KindName}がすべて目標数に達しました（ほかの有効なリストの品は続けて採ります）。"
+                : $"\n選んだ{run.KindName}がすべて目標数に達しました（GBR は採るものが無くなると自動採集を止めます）。";
+        run.Short = run.Goals.Any(g => held[g.ItemId] < g.Target);
+    }
+
+    /// <summary>「停止して管理リストを削除」（その登録だけ）。</summary>
+    private void RequestUserStop(Run run)
+    {
+        if (run.StopRequested) return;
+        run.StopReason = $"{run.KindName}：利用者の操作で停止しました。";
+        run.StopRequested = true;
+    }
+
+    /// <summary>見張りで問題が見つかった登録を止める印を付ける（最初の理由を残し、そのあとの失敗は「復元待ち」に足す）。</summary>
+    private void RequestStop(Run run, string reason)
+    {
+        if (!run.StopRequested) run.StopReason = $"{run.KindName}：{reason}";
+        status = run.StopRequested ? run.StopReason + " 復元待ち：" + reason : run.StopReason;
+        run.StopRequested = true;
+    }
+
+    /// <summary>
+    /// 登録を 1 つ止める（TimedRunRules.Stop）。止め終えたら true、待つ・失敗したら false（次の Tick で続ける）。
+    /// ほかの登録が続くときは、GBR を止めず、設定も戻さず、このリストだけ消す（採集の切れ目で）。最後の登録なら、従来どおり
+    /// GBR を止めてから管理リストを全部消し、GBR の設定を戻す。
+    /// </summary>
+    private bool StopRun(Run run, bool on)
+    {
+        if (!recoveryRetry.TryBegin(DateTime.UtcNow)) return false;
+        var others = Runs.Where(r => r != run && r.Active).ToArray();
+        try
+        {
+            switch (TimedRunRules.Stop(others.Length > 0, on, access.SafeBoundary))
+            {
+                case TimedRunRules.StopStep.Wait:
+                    status = "採集・精選の切れ目で停止します";
+                    return false;
+                case TimedRunRules.StopStep.RemoveListOnly:
+                    if (!lists.RemoveManagedList(run.ListName, config.TimedRecoveryTag)) throw new InvalidOperationException(lists.LastError);
+                    run.Active = false; run.StopRequested = false;
+                    status = $"{run.StopReason} {run.KindName}の管理リストを削除しました（{others[0].KindName}は続けます）。";
+                    return true;
+                case TimedRunRules.StopStep.StopGbr:
+                    gbr.SetAutoGatherEnabled(false);
+                    if (gbr.IsAutoGatherEnabled() != false) return false;
+                    break;
+            }
+
+            Recover();
+            run.Active = false; run.StopRequested = false; reduction.Cancel();
+            status = run.StopReason + " 管理リストを削除し、GBR の設定を戻しました。";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            status = run.StopReason + " 復元待ち：" + ex.GetBaseException().Message;
+            return false;
+        }
+    }
+
+    /// <summary>一番上へ戻すのに失敗した並び（同じ並びでは試し直さない。保存し直しを繰り返さないため。登録が増減したら試し直す）。</summary>
+    private string topMoveFailedFor = "";
 
     /// <summary>
     /// 登録中、管理リストを Auto-Gather の一番上に保つ（GBR の画面で動かした・ほかのリストを上へ動かしたなど）。
+    /// 霊砂とクリスタルの両方を登録しているときは、霊砂を一番上・クリスタルをその下に保つ（TimedRunRules.ListOrder）。
     /// 採集の切れ目でだけ呼ぶ（品の有効・無効を切り替えるのと同じ。GBR は切れ目ごとに採る順を決め直す）。
     /// 動かせなくても採集は続ける（並びがずれるだけで、原料は採れる）。
     /// </summary>
     private void KeepOnTop()
     {
-        if (topMoveFailed) return;
-        if (!lists.MoveManagedListToTop(listName, config.TimedRecoveryTag, out var moved))
+        var order = TimedRunRules.ListOrder(sandRun.Active && !sandRun.StopRequested, crystalRun.Active && !crystalRun.StopRequested,
+            SandListName, CrystalListName);
+        if (order.Count == 0) return;
+        var key = string.Join("|", order);
+        if (topMoveFailedFor == key) return;
+        if (!lists.MoveManagedListsToTop(order, config.TimedRecoveryTag, out var moved))
         {
-            topMoveFailed = true;
+            topMoveFailedFor = key;
             status = $"管理リストを Auto-Gather の一番上へ戻せません：{lists.LastError}";
             return;
         }
         if (moved)
-            status = $"管理リスト「{listName}」を Auto-Gather の一番上へ戻しました";
+            status = $"管理リスト「{string.Join("」「", order)}」を Auto-Gather の一番上へ戻しました";
     }
 
     /// <summary>原料の名前（状態の文に出す）。</summary>
