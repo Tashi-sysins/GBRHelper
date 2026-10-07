@@ -30,32 +30,124 @@ public static class RequiredPlugins
     /// <param name="Need">どのくらい要るか。</param>
     /// <param name="UsedBy">使う機能。</param>
     /// <param name="IfMissing">無いとどうなるか。</param>
-    public sealed record Entry(string InternalName, string DisplayName, Need Need, string UsedBy, string IfMissing);
+    /// <param name="RepoUrls">
+    /// 配布元（Dalamud の設定の「カスタムプラグインリポジトリ」に足す URL）。先頭が案内する URL、ほかは同じ中身の別の書き方。
+    /// null は Dalamud の公式の配布（足さなくてよい）。
+    /// </param>
+    public sealed record Entry(string InternalName, string DisplayName, Need Need, string UsedBy, string IfMissing,
+        IReadOnlyList<string>? RepoUrls = null);
 
     /// <summary>
     /// 使うプラグインの全部（画面の並び）。InternalName は各プラグインの manifest の値（2026-10-05 導入済みの一覧で確認）。
+    /// DisplayName は配布元に載っている名前と同じ（インストールの画面をこの名前で検索する）。
+    /// 配布元（RepoUrls）は 2026-10-08 に各配布元の一覧を読んで、その InternalName が載っていることを確かめた
+    /// （Allagan Tools は Dalamud の公式の一覧 kamori.goats.dev に載っている）。配布元が変わったら直す。
     /// </summary>
     public static readonly IReadOnlyList<Entry> All =
     [
         new("GatherBuddyReborn", "GatherBuddy Reborn", Need.Required,
             "すべての機能",
-            "何も動きません（GBRHelper は GBR の自動採集を補助するプラグインです）"),
+            "何も動きません（GBRHelper は GBR の自動採集を補助するプラグインです）",
+            ["https://raw.githubusercontent.com/FFXIV-CombatReborn/CombatRebornRepo/main/pluginmaster.json"]),
         new("AutoRetainer", "AutoRetainer", Need.ForFeature,
             "ベンチャー回収",
-            "ベンチャーが回収できるかを判断できず、回収もできません"),
+            "ベンチャーが回収できるかを判断できず、回収もできません",
+            ["https://love.puni.sh/ment.json", "https://puni.sh/api/plugins"]),
         new("Lifestream", "Lifestream", Need.ForFeature,
             "ベンチャー回収・ヤンサの山越え",
-            "回収のときに宿屋の部屋へ帰れません・ヤンサの山越えでテレポできません"),
+            "回収のときに宿屋の部屋へ帰れません・ヤンサの山越えでテレポできません",
+            ["https://raw.githubusercontent.com/NightmareXIV/MyDalamudPlugins/main/pluginmaster.json",
+             "https://github.com/NightmareXIV/MyDalamudPlugins/raw/main/pluginmaster.json"]),
         new("vnavmesh", "vnavmesh", Need.ForFeature,
             "ベンチャー回収・ヤンサの山越え",
-            "宿屋の部屋の中で呼び鈴まで歩けません・ヤンサの山越えで経路を読めません"),
+            "宿屋の部屋の中で呼び鈴まで歩けません・ヤンサの山越えで経路を読めません",
+            ["https://puni.sh/api/repository/veyn"]),
         new("InventoryTools", "Allagan Tools", Need.ForFeature,
             "全素材の補充（希望所持数）・霊砂・クリスタル（リテイナーの数の表示）",
             "リテイナーの持ち数を数えられません（希望所持数の帯は作られず、数は「不明」と出ます）"),
         new("Artisan", "Artisan", Need.ForFeature,
             "Crafting Listsから末端素材抽出",
-            "Crafting Lists を読めないので、この機能だけ使えません"),
+            "Crafting Lists を読めないので、この機能だけ使えません",
+            ["https://love.puni.sh/ment.json", "https://puni.sh/api/plugins"]),
     ];
+
+    /// <summary>配布元の状態（足りないプラグインの「配布元を追加」を出すかの判断）。</summary>
+    public enum RepoStatus
+    {
+        /// <summary>Dalamud の公式の配布（足さなくてよい）。</summary>
+        Official,
+
+        /// <summary>カスタムプラグインリポジトリに登録済みで有効。</summary>
+        Added,
+
+        /// <summary>登録済みだが無効。</summary>
+        Disabled,
+
+        /// <summary>登録されていない。</summary>
+        Missing,
+
+        /// <summary>Dalamud の設定を読めない（登録されているか分からない）。</summary>
+        Unknown,
+    }
+
+    /// <summary>
+    /// そのプラグインの配布元が、Dalamud の設定のカスタムプラグインリポジトリに入っているか。
+    /// repos は登録済みの配布元（ReadRepos）。null は読めなかった。同じ中身の別の URL のどれかが有効なら登録済み。
+    /// </summary>
+    public static RepoStatus RepoState(Entry entry, IReadOnlyList<(string Url, bool Enabled)>? repos)
+    {
+        if (entry.RepoUrls is not { Count: > 0 } urls)
+            return RepoStatus.Official;
+        if (repos is null)
+            return RepoStatus.Unknown;
+        var found = repos.Where(r => urls.Any(u => SameUrl(u, r.Url))).ToList();
+        if (found.Any(r => r.Enabled))
+            return RepoStatus.Added;
+        return found.Count > 0 ? RepoStatus.Disabled : RepoStatus.Missing;
+    }
+
+    /// <summary>URL が同じか（前後の空白・末尾の「/」・大文字小文字を見ない）。</summary>
+    public static bool SameUrl(string a, string b)
+        => string.Equals(a.Trim().TrimEnd('/'), b.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Dalamud の設定（dalamudConfig.json）から、カスタムプラグインリポジトリの一覧を読む。読めなければ null（読むだけで書かない）。
+    /// 形は ThirdRepoList の "$values" の中の Url・IsEnabled（2026-10-08 手元の設定ファイルで確認。型の情報つきで保存されている）。
+    /// "$values" の無い素の配列でも読む。
+    /// </summary>
+    public static IReadOnlyList<(string Url, bool Enabled)>? ReadRepos(string json)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("ThirdRepoList", out var list))
+                return null;
+            if (list.ValueKind == System.Text.Json.JsonValueKind.Object && list.TryGetProperty("$values", out var values))
+                list = values;
+            if (list.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return null;
+            var repos = new List<(string Url, bool Enabled)>();
+            foreach (var r in list.EnumerateArray())
+            {
+                if (r.ValueKind != System.Text.Json.JsonValueKind.Object || !r.TryGetProperty("Url", out var url) || url.ValueKind != System.Text.Json.JsonValueKind.String)
+                    continue;
+                var enabled = r.TryGetProperty("IsEnabled", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.True;
+                repos.Add((url.GetString() ?? "", enabled));
+            }
+
+            return repos;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Dalamud の設定ファイルの場所。プラグインの設定フォルダ（…\pluginConfigs\GBRHelper）の 2 つ上（XIVLauncher のフォルダ）の dalamudConfig.json。
+    /// </summary>
+    public static string DalamudConfigPath(string pluginConfigDirectory)
+        => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(pluginConfigDirectory.TrimEnd('\\', '/')) ?? "") ?? "", "dalamudConfig.json");
 
     /// <summary>いまの状態。</summary>
     public enum Status

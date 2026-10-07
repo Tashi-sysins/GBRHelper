@@ -398,8 +398,91 @@ public sealed class MainWindow : Window, IDisposable
                         _ => ImGuiColors.DalamudYellow,
                     };
                     ImGui.TextColored(color, RequiredPlugins.StatusText(state));
+                    this.DrawInstallButtons(state);
                 }
             }
+        }
+    }
+
+    /// <summary>登録済みの配布元（Dalamud の設定を 5 秒ごとに読む。読めなければ null）。</summary>
+    private IReadOnlyList<(string Url, bool Enabled)>? repos;
+
+    private DateTime nextRepoRead;
+
+    /// <summary>「配布元を追加」を押したプラグイン（貼り付けの案内を出す）。</summary>
+    private string? repoCopied;
+
+    /// <summary>
+    /// 足りないプラグインの「状態」の欄のボタン（要望「不足しているプラグインがあった場合、直リンクボタンでインストールを簡単に」）。
+    /// Dalamud の公式の口で、インストールの画面（その名前で検索した状態）・設定の画面（試験的機能）を開く。
+    /// 配布元をプラグインが自分で足す口は無い（Dalamud は利用者の同意に任せている）ので、URL をコピーして設定を開くところまでにする。
+    /// </summary>
+    private void DrawInstallButtons(RequiredPlugins.State state)
+    {
+        var entry = state.Entry;
+        if (state.Status == RequiredPlugins.Status.NotLoaded)
+        {
+            // 入っているが止まっている：インストール済みの画面を開く（有効にするのは利用者）。
+            if (ImGui.Button($"有効にする##enable{entry.InternalName}"))
+                Svc.PluginInterface.OpenPluginInstallerTo(Dalamud.Interface.PluginInstallerOpenKind.InstalledPlugins, entry.DisplayName);
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip($"Dalamud のプラグインの画面（インストール済み）を「{entry.DisplayName}」で検索して開きます。\n「{entry.DisplayName}」を有効にしてください。");
+            return;
+        }
+
+        if (state.Status != RequiredPlugins.Status.Missing)
+            return;
+
+        if (DateTime.UtcNow >= this.nextRepoRead)
+        {
+            this.nextRepoRead = DateTime.UtcNow.AddSeconds(5);
+            this.repos = ReadDalamudRepos();
+        }
+
+        var repo = RequiredPlugins.RepoState(entry, this.repos);
+        if (repo is RequiredPlugins.RepoStatus.Missing or RequiredPlugins.RepoStatus.Disabled or RequiredPlugins.RepoStatus.Unknown
+            && entry.RepoUrls is { Count: > 0 } urls)
+        {
+            var disabled = repo == RequiredPlugins.RepoStatus.Disabled;
+            if (ImGui.Button($"{(disabled ? "配布元を有効に" : "配布元を追加")}##repo{entry.InternalName}"))
+            {
+                if (!disabled)
+                    ImGui.SetClipboardText(urls[0]);
+                Svc.PluginInterface.OpenDalamudSettingsTo(Dalamud.Interface.SettingsOpenKind.Experimental);
+                this.repoCopied = disabled ? null : entry.InternalName;
+            }
+
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(disabled
+                    ? $"「{entry.DisplayName}」の配布元は登録済みですが、無効になっています。\nDalamud の設定（試験的機能）を開くので、「カスタムプラグインリポジトリ」で有効にして保存してください。"
+                    : $"「{entry.DisplayName}」の配布元の URL をコピーして、Dalamud の設定（試験的機能）を開きます。\n"
+                      + $"「カスタムプラグインリポジトリ」の空欄に貼り付けて「＋」→「保存」を押してから、「インストール」を押してください。\n{urls[0]}"
+                      + (repo == RequiredPlugins.RepoStatus.Unknown ? "\n（Dalamud の設定を読めないので、登録済みかは分かりません。登録済みなら要りません）" : ""));
+            ImGui.SameLine();
+        }
+
+        if (ImGui.Button($"インストール##install{entry.InternalName}"))
+            Svc.PluginInterface.OpenPluginInstallerTo(Dalamud.Interface.PluginInstallerOpenKind.AllPlugins, entry.DisplayName);
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip($"Dalamud のプラグインの画面を「{entry.DisplayName}」で検索して開きます。\n出てきた「{entry.DisplayName}」の「インストール」を押してください。");
+
+        if (this.repoCopied == entry.InternalName)
+            ImGui.TextColored(ImGuiColors.DalamudGrey, "URL をコピーしました。設定の「カスタムプラグインリポジトリ」に貼り付けて「＋」→「保存」");
+    }
+
+    /// <summary>Dalamud の設定ファイルから登録済みの配布元を読む（読むだけ。書いている途中でも読めるように共有で開く）。読めなければ null。</summary>
+    private static IReadOnlyList<(string Url, bool Enabled)>? ReadDalamudRepos()
+    {
+        try
+        {
+            var path = RequiredPlugins.DalamudConfigPath(Svc.PluginInterface.ConfigDirectory.FullName);
+            using var stream = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete);
+            using var reader = new System.IO.StreamReader(stream);
+            return RequiredPlugins.ReadRepos(reader.ReadToEnd());
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 
