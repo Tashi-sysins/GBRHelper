@@ -12,7 +12,7 @@ namespace GBRHelper.Features;
 /// GBR の日本語表示の状態（フック・辞書・訳している文言の種類・タブを戻した回数・例外）と、
 /// 「訳の無かった英語を集める」（辞書を足すための記録）をここに置く（日本語表示の画面からは外した）。
 /// </summary>
-public sealed class DebugFeature(TranslationFeature translation, YanxiaShortcut? yanxia = null) : IFeature
+public sealed class DebugFeature(TranslationFeature translation, YanxiaShortcut? yanxia = null, Func<GBRHelper.Ui.GbrWindowExtras?>? gbrExtras = null) : IFeature
 {
     public const string FeatureName = "デバッグ";
 
@@ -56,6 +56,25 @@ public sealed class DebugFeature(TranslationFeature translation, YanxiaShortcut?
             ImGui.Separator();
             ImGui.TextColored(ImGuiColors.DalamudGrey, "ヤンサの山越え");
             ImGui.TextWrapped($"直近の判断：{(yanxia.Diagnosis.Length != 0 ? yanxia.Diagnosis : "（まだ見ていません）")}・テレポした回数 {yanxia.Count}");
+        }
+
+        // GBR の画面への差し込み（2026-10-07）：自動採集タブを開いたか・ボタンを描いているか
+        if (gbrExtras is not null)
+        {
+            ImGui.Separator();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, "GBR の画面への差し込み");
+            if (gbrExtras() is { } x)
+            {
+                ImGui.TextWrapped($"自動採集タブ：{(x.LastSelect.Length != 0 ? x.LastSelect : "（まだ開いていません）")}・「GBRHelperを開く」を描いた回数 {x.ButtonDraws:N0}");
+                if (x.Missing.Length != 0)
+                    ImGui.TextColored(ImGuiColors.DalamudYellow, "置けなかったフック：" + x.Missing);
+                if (x.ErrorCount > 0)
+                    ImGui.TextColored(ImGuiColors.DalamudYellow, $"例外 {x.ErrorCount:N0} 回（最初：{x.FirstError}）");
+            }
+            else
+            {
+                ImGui.TextUnformatted("置いていません（準備中・または置けませんでした。dalamud.log を見てください）");
+            }
         }
 
         ImGui.Separator();

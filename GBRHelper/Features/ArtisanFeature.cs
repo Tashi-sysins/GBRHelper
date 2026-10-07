@@ -61,6 +61,38 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
     /// <summary>伝承録を読んだか確かめられないので入れなかった素材の名前。</summary>
     private List<string> folkloreUnknownNames = new();
 
+    /// <summary>シャード・クリスタル・クラスターなので入れなかった素材の名前（2026-10-07）。</summary>
+    private List<string> crystalNames = new();
+
+    /// <summary>
+    /// シャード・クリスタル・クラスターを見分ける Item.FilterGroup の値。GBR の Gatherable.IsCrystal と同じ（GatherBuddy.GameData/Classes/Gatherable.cs:30）。
+    /// ゲームデータの確認（2026-10-07）：FilterGroup 11 の品は 6 属性のシャード・クリスタル・クラスターの 18 品だけで、
+    /// UI の区分「クリスタル」の品もこの 18 品だけ。
+    /// </summary>
+    public const byte CrystalFilterGroup = 11;
+
+    /// <summary>
+    /// GBR で採れる素材を、シャード・クリスタル・クラスターとそれ以外に分ける（要望：
+    /// 「シャード・クリスタル・クラスターは不要。足りなければマーケットボードで買うか精選で補充するので、採りには行かない」）。
+    /// </summary>
+    public static (List<(uint ItemId, uint Quantity)> Keep, List<uint> Crystals) SplitCrystals(
+        IEnumerable<(uint ItemId, uint Quantity)> entries, Func<uint, bool> isCrystal)
+    {
+        var keep = new List<(uint ItemId, uint Quantity)>();
+        var crystals = new List<uint>();
+        foreach (var e in entries)
+        {
+            if (isCrystal(e.ItemId)) crystals.Add(e.ItemId);
+            else keep.Add(e);
+        }
+
+        return (keep, crystals);
+    }
+
+    /// <summary>その品がシャード・クリスタル・クラスターか（ゲームデータの Item で見る）。</summary>
+    public static bool IsCrystal(Dalamud.Plugin.Services.IDataManager data, uint itemId)
+        => data.GetExcelSheet<Lumina.Excel.Sheets.Item>().TryGetRow(itemId, out var row) && row.FilterGroup == CrystalFilterGroup;
+
     public void ResetCharacter()
     {
         selected = requested = null; names = null; nextNames = default;
@@ -72,6 +104,7 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
         this.skippedNames.Clear();
         this.folkloreNames.Clear();
         this.folkloreUnknownNames.Clear();
+        this.crystalNames.Clear();
     }
 
     public void Tick()
@@ -153,6 +186,7 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
             UnvisitedFeature.ButtonTooltip(block,
                 "選んだ Crafting List を作るのに要る素材のうち、GBR で採れる品を GBR の Auto-Gather に追加します。\n"
                 + "伝承録を読んでいないと採れない品は入れません（GBR が採集点の前で待ち続けるため）。\n"
+                + "シャード・クリスタル・クラスターも入れません（マーケットボード・精選で補充するため）。\n"
                 + $"リストの名前は「{ListNamePrefix}（Crafting List の名前）」。同じ Crafting List で押し直すと、そのリストを作り直します。");
 
         // GBR 自身の取り込みの場所の案内（指定の文）。
@@ -167,6 +201,14 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
             ImGui.TextColored(ImGuiColors.DalamudGrey, $"GBR で採れない素材 {this.skippedNames.Count} 品は入れていません（購入品・ドロップ品・製作品など）");
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip(string.Join("\n", this.skippedNames));
+        }
+
+        // シャード・クリスタル・クラスター（要望：マーケットボードで買うか精選で補充するので、採りに行かない）。
+        if (this.crystalNames.Count > 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, $"シャード・クリスタル・クラスター {this.crystalNames.Count} 品は入れていません（マーケットボード・精選で補充するため）");
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(string.Join("\n", this.crystalNames));
         }
 
         // 伝承録を読んでいない品（確認：読んでいないと採れないので、プリセットから外す）。
@@ -202,9 +244,18 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
             return;
         }
 
+        // シャード・クリスタル・クラスターを外す（足りなければマーケットボードか精選で補充する）。
+        var (gatherable, crystals) = SplitCrystals(resolved.Entries, id => IsCrystal(Svc.Data, id));
+        this.crystalNames = crystals.Select(ItemName).ToList();
+        if (gatherable.Count == 0)
+        {
+            this.result = $"「{name}」の素材で GBR で採れる品は、シャード・クリスタル・クラスターだけでした。追加しませんでした。";
+            return;
+        }
+
         // 伝承録を読んでいないと採れない品を外す（2026-10-06。GBR は伝承録を見ずに採集点の前で待ち続けるため）。
         if (!folklore.Prepare()) { this.result = "追加しませんでした：" + folklore.LastError; return; }
-        var (entries, notRead, unknown) = ItemFolklore.Filter(resolved.Entries, folklore.Ok);
+        var (entries, notRead, unknown) = ItemFolklore.Filter(gatherable, folklore.Ok);
         this.folkloreNames = notRead.Select(ItemName).ToList();
         this.folkloreUnknownNames = unknown.Select(ItemName).ToList();
         if (entries.Count == 0)

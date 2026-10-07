@@ -15,7 +15,7 @@ GBR Venture Relay（ベンチャー回収だけのプラグイン）を改名し
 | ベンチャー未採取品の採取 | 採取手帳でまだ採っていない品（ベンチャーで依頼できるもの）を、Lv 帯ごとに GBR のリストにする |
 | 全素材の補充 | Lv 帯ごとに全部の品を N 個ずつ（または鞄＋リテイナーで N 個になるまで）採るリストを作る |
 | 霊砂・クリスタル | 欲しい霊砂・クリスタルを目標の数まで、原料を採って精選させる。届いた原料はリストの中で無効にする |
-| Crafting Listsから末端素材抽出 | Artisan の Crafting Lists の素材（GBR で採れる品）を GBR のリストにする |
+| Crafting Listsから末端素材抽出 | Artisan の Crafting Lists の素材（GBR で採れる品。シャード・クリスタル・クラスターは除く）を GBR のリストにする |
 
 仕様と動きの詳細は [docs/説明書.md](docs/説明書.md)。
 
@@ -52,7 +52,7 @@ https://raw.githubusercontent.com/Tashi-sysins/Tashi-sysins-repo/main/repo.json
 | `/gbrhelper`（`/gbh`） | 画面の開閉 |
 | `/gbrhelper now` | 次の採集の切れ目で回収へ向かう（精選中は完了後） |
 
-GBRHelper の画面の左上の「GBR の画面を開く」で、GBR の画面を呼び出せる（開いているときに押すと閉じる）。
+GBRHelper の画面の左上の「GBR の画面を開く」で、GBR の画面を「自動採集」タブで呼び出せる（開いているときは閉じずに自動採集タブへ切り替える）。反対に、GBR の自動採集タブの「Artisan から読み込む」の上の「GBRHelperを開く」で、GBRHelper の画面を呼び出せる。
 
 ## 設定の保存
 
@@ -81,6 +81,12 @@ setx GBRH_DEPLOY_DIR "D:\MyPlugins\GBRHelper\"
 ```
 
 ## 更新履歴
+
+### 0.3.0.12
+
+- Crafting Listsから末端素材抽出：シャード・クリスタル・クラスターをリストに入れないようにした（足りなければマーケットボードで買うか精選で補充するため）。入れなかった品は「シャード・クリスタル・クラスター n 品は入れていません」と出す。見分け方は GBR と同じ（品の FilterGroup が 11）
+- 「GBR の画面を開く」で、GBR のメイン画面を「自動採集」タブで開くようにした。GBR の画面が開いているときは、閉じずに自動採集タブへ切り替える
+- GBR の自動採集タブの「Artisan から読み込む」の上に「GBRHelperを開く」ボタンを置いた（GBR の画面を描くときの ImGui の呼び出しに手を入れる。GBR 本体は変えない）
 
 ### 0.3.0.11
 

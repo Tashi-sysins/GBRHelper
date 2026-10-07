@@ -32,6 +32,9 @@ public sealed class MainWindow : Window, IDisposable
     private readonly GbrConflictGuard gbrGuard;
     private readonly FeatureCatalog features;
 
+    /// <summary>GBR の画面への差し込み（自動採集タブを開く。置けていなければ null。Plugin が描くスレッドで置く）。</summary>
+    private readonly Func<GbrWindowExtras?> gbrExtras;
+
     /// <summary>
     /// 左上の「機能」の文字のクリックを数える（5 回で「デバッグ」を出す・隠す）。
     /// 宿屋の検証（以前は記録タブを 5 回で出た「検証」タブ）も「デバッグ」の画面に出す（2026-10-06 記録タブを外したため）。
@@ -84,9 +87,11 @@ public sealed class MainWindow : Window, IDisposable
         InnService inns,
         InnTestRunner innTest,
         GbrConflictGuard gbrGuard,
-        FeatureCatalog features)
+        FeatureCatalog features,
+        Func<GbrWindowExtras?> gbrExtras)
         : base("GBRHelper##GBRHelper")
     {
+        this.gbrExtras = gbrExtras;
         this.config = config;
         this.relay = relay;
         this.log = log;
@@ -142,17 +147,25 @@ public sealed class MainWindow : Window, IDisposable
         this.RefreshPluginStates();
 
         // 一番上に GBR の画面を呼び出すボタン（要望「ワンクリックで GBR メニューを呼び出せるボタン」）。
-        // Dalamud の公式の口（IExposedPlugin.OpenMainUi）で開く。GBR はこの口に開閉の切り替えを登録しているので、開いていれば閉じる。
+        // Dalamud の公式の口（IExposedPlugin.OpenMainUi）で開く。GBR はこの口に開閉の切り替えを登録している（開いていれば閉じる）。
+        // 要望「押したら自動採集タブを開く」：開いたあと自動採集タブを選ぶ（GbrWindowExtras）。
+        //   開いているときは切り替えの口を呼ばない（呼ぶと閉じてしまう）で、自動採集タブへ切り替えるだけにする。
         var gbrLoaded = this.pluginStates.Any(s => s.Entry.Need == RequiredPlugins.Need.Required && s.Status == RequiredPlugins.Status.Loaded);
         using (ImRaii.Disabled(!gbrLoaded))
         {
             if (ImGui.Button("GBR の画面を開く##openGbr", new Vector2(-1, 0)))
-                this.gbrOpenError = RequiredPlugins.OpenMainUi(Svc.PluginInterface.InstalledPlugins, "GatherBuddyReborn", "GatherBuddy Reborn");
+            {
+                this.gbrOpenError = GbrWindowExtras.IsGbrWindowOpen()
+                    ? null
+                    : RequiredPlugins.OpenMainUi(Svc.PluginInterface.InstalledPlugins, "GatherBuddyReborn", "GatherBuddy Reborn");
+                if (this.gbrOpenError is null)
+                    this.gbrExtras()?.RequestAutoGatherTab();
+            }
         }
 
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             ImGui.SetTooltip(gbrLoaded
-                ? "GatherBuddy Reborn のメイン画面を開きます（開いているときに押すと閉じます）。"
+                ? "GatherBuddy Reborn のメイン画面を「自動採集」タブで開きます（開いているときは自動採集タブに切り替えます）。"
                 : "GatherBuddy Reborn が読み込まれていません。");
 
         if (this.gbrOpenError is { } openError)

@@ -55,6 +55,12 @@ public sealed class Plugin : IDalamudPlugin
     private readonly FeatureCatalog features;
     private readonly TranslationFeature translation;
     private readonly YanxiaShortcut yanxia;
+
+    /// <summary>GBR の画面への差し込み（OnDraw で置く。置けていなければ null）。</summary>
+    private GbrWindowExtras? gbrExtras;
+
+    /// <summary>差し込みを置けなかった（以後は置き直さない）。</summary>
+    private bool gbrExtrasFailed;
     private readonly MainWindow window;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
@@ -157,12 +163,12 @@ public sealed class Plugin : IDalamudPlugin
         this.features.Add(this.translation);
 
         // デバッグ（左上の「機能」を 5 回続けて押すと出る。日本語表示の状態と、訳の無かった英語を集める機能）。
-        this.features.Add(new DebugFeature(this.translation, this.yanxia));
+        this.features.Add(new DebugFeature(this.translation, this.yanxia, () => this.gbrExtras));
 
         this.window = new MainWindow(
             this.config, this.relay, this.log, this.gatherBuddy,
             this.retainer, this.lifestream, this.navmesh, this.inns, this.innTest, this.gbrGuard,
-            this.features);
+            this.features, () => this.gbrExtras);
 
         this.windows.AddWindow(this.window);
 
@@ -326,6 +332,22 @@ public sealed class Plugin : IDalamudPlugin
             Svc.Log.Error($"[GBRHelper] 翻訳の準備で例外: {ex}");
         }
 
+        // GBR の画面への差し込み（自動採集タブを開く・「GBRHelperを開く」ボタン。2026-10-07）。
+        // 日本語表示と同じく、ImGui を描くスレッドの上（ここ）で一度だけ置く。置けなかったら置き直さない（毎フレーム失敗し続けないため）。
+        if (this.gbrExtras is null && !this.gbrExtrasFailed)
+        {
+            try
+            {
+                this.gbrExtras = GbrWindowExtras.Install(() => { this.window.IsOpen = true; this.window.BringToFront(); });
+                Svc.Log.Information($"[GBRHelper] GBR の画面への差し込みを始めました{(this.gbrExtras.Missing.Length != 0 ? "（置けなかったもの：" + this.gbrExtras.Missing + "）" : "")}");
+            }
+            catch (Exception ex)
+            {
+                this.gbrExtrasFailed = true;
+                Svc.Log.Error($"[GBRHelper] GBR の画面への差し込みを始められませんでした（GBR の画面を開くことはできます）: {ex}");
+            }
+        }
+
         this.windows.Draw();
     }
 
@@ -368,6 +390,8 @@ public sealed class Plugin : IDalamudPlugin
 
         // 翻訳のフックを外す（自分が置いたフックだけ。GBR には触れない）。
         this.translation.Dispose();
+        this.gbrExtras?.Dispose();
+        this.gbrExtras = null;
 
         // 【アンロード経路では相手のプラグインに触れない】
         // ここで GatherBuddyReborn を操作すると、こちらを更新・再読み込みしただけで
