@@ -7,6 +7,7 @@
 
 ・GBR の日本語表示：GBR を日本語化
 ・ベンチャー回収：自動採取中にベンチャー回収可能になったら、指定した宿屋へ一時的に戻る
+・ヤンサの山越え：ヤンサで山を越える経路になったら、詰まる前に烈士庵・ナマイ村へテレポする
 ・ベンチャー未採取品の採取：リテイナーにベンチャー依頼させる際、未採取品だと依頼出来ないのでフラグ立てをする
 ・全素材の補充：リテイナーに全素材を持たせたい人用
 ・霊砂・クリスタル：欲しい霊砂・クリスタルを目標の数まで、原料を採って精選させる
@@ -14,7 +15,7 @@
 
     <Tags>gatherbuddy;gathering;retainer;venture;automation;japanese;translation</Tags>
     <Author>ヌル</Author>
-    <Version>0.3.0.9</Version>
+    <Version>0.3.0.10</Version>
     <RootNamespace>GBRHelper</RootNamespace>
     <AssemblyName>GBRHelper</AssemblyName>
     <Copyright>MIT</Copyright>

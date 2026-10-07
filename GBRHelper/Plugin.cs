@@ -54,6 +54,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private readonly FeatureCatalog features;
     private readonly TranslationFeature translation;
+    private readonly YanxiaShortcut yanxia;
     private readonly MainWindow window;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
@@ -96,7 +97,7 @@ public sealed class Plugin : IDalamudPlugin
         var timedAccess = new GbrTimedAccess(gbrConfigAccess);
         var timed = new TimedFeature(this.config, catalogBuilder, completionReader, listAccess,
             this.gatherBuddy, timedAccess,
-            () => this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching));
+            () => this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching) || this.yanxia?.Running == true);
         this.timedFeature = timed;
         this.features.Add(timed);
         // ほかの自動処理で、解放採取・全素材の補充のリストの登録・作り直しを止める理由（止めなくてよければ null）。
@@ -106,15 +107,26 @@ public sealed class Plugin : IDalamudPlugin
         // ほかのリストがあっても原料を先に採る。前は「上から順に採らせる」ため、霊砂の登録中は止めていた）。
         // リストの作り直しは GBR が止まっているときに始まる（GatherProfileController.Apply・RefreshWhenStopped）。動いている GBR を止めるのは、
         // キャラクターが変わったとき（霊砂の登録はそのとき終わっている。TimedFeature.Tick）と、別のキャラクターのリストを消すとき（霊砂が無くても同じ）だけ。
+        // ヤンサの山越えでテレポしている間（GBR を一時的に OFF にしている）も止める（2026-10-07。GBR が止まった隙にリストを書き直さないため）。
         string? BusyReason()
-            => this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching)
+            => this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching) || this.yanxia?.Running == true
                 ? GatherProfileController.BusyText
                 : null;
 
         // リストの作り直しを待たせるのは、BusyReason のうち「自動採集へ戻している」段を除いたとき（RelayController.BlocksListWrites。2026-10-07）。
         // 画面のボタン・ほかの機能の自動の作り直しは、いままでどおり BusyReason で止める。
         this.gatherProfiles = new GatherProfileController(this.config, catalogBuilder, completionReader, listAccess,
-            this.gatherBuddy, timedAccess, () => this.innTest.Running || RelayController.BlocksListWrites(this.relay.Current));
+            this.gatherBuddy, timedAccess, () => this.innTest.Running || RelayController.BlocksListWrites(this.relay.Current) || this.yanxia?.Running == true);
+
+        // ヤンサの山越え。GBR を止める・戻すのはベンチャー回収の「自分の操作」の数え方を通す
+        // （ベンチャーの見張りが「利用者が止めた」と読んで止まらないように）。ほかの自動処理の途中・精選中・リストの書き直し中は手を出さない。
+        this.yanxia = new YanxiaShortcut(this.config, this.log, this.navmesh, this.lifestream, this.gatherBuddy,
+            this.relay.IssueGatherBuddyChange,
+            () => this.innTest.Running || this.relay.Current is not (RelayController.Phase.Off or RelayController.Phase.Watching)
+                  || timed.BlocksRelay || this.gatherProfiles.IsWriting
+                ? GatherProfileController.BusyText
+                : null);
+        this.features.Add(this.yanxia);
 
         // 現在のキャラクターだけ操作する。旧 Link の送信・受信・Mirror は起動しない。
         this.innTest.StartBlocked = () => !ready || InnTestRunner.Blocked(relay.Active, gatherBuddy.IsAutoGatherEnabled());
@@ -145,7 +157,7 @@ public sealed class Plugin : IDalamudPlugin
         this.features.Add(this.translation);
 
         // デバッグ（左上の「機能」を 5 回続けて押すと出る。日本語表示の状態と、訳の無かった英語を集める機能）。
-        this.features.Add(new DebugFeature(this.translation));
+        this.features.Add(new DebugFeature(this.translation, this.yanxia));
 
         this.window = new MainWindow(
             this.config, this.relay, this.log, this.gatherBuddy,
@@ -211,7 +223,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         // 外部プラグインには指示せず、このゲーム内の予約・キャッシュだけ破棄する。
         relay.ResetCharacter(); innTest.ResetCharacter(); timedFeature.ResetCharacter();
-        gatherProfiles.ResetCharacter(); artisanFeature.ResetCharacter();
+        gatherProfiles.ResetCharacter(); artisanFeature.ResetCharacter(); yanxia.ResetCharacter();
         foreach (var feature in features.Items)
         {
             if (feature is StockFeature stock) stock.ResetCharacter();
@@ -251,8 +263,9 @@ public sealed class Plugin : IDalamudPlugin
             this.completionReader.RecheckFolklore(DateTime.UtcNow);
 
             // 精選キューをベンチャー回収のOFF操作で中断しない。
+            // ヤンサの山越えでテレポしている間も、ベンチャー回収は進めない（宿屋へのテレポと取り合わないため。2026-10-07）。
             this.gatherProfiles.Tick();
-            if (ProfileUpdateCycle.AllowRelayTick(this.timedFeature.BlocksRelay, this.gatherProfiles.IsWriting)) this.relay.Tick();
+            if (ProfileUpdateCycle.AllowRelayTick(this.timedFeature.BlocksRelay || this.yanxia.Running, this.gatherProfiles.IsWriting)) this.relay.Tick();
 
             // Enabled になっている新機能の Tick を回す。1個の例外で他を止めない。
             this.features.TickEnabled();
@@ -275,10 +288,13 @@ public sealed class Plugin : IDalamudPlugin
     {
         var on = this.gatherBuddy.IsAutoGatherEnabled();
         if (on is null) return "GatherBuddyReborn の状態を読めません";
+        // ヤンサの山越えのテレポの途中なら、その段取りをやめる（あとで GBR を ON に戻さないように。2026-10-07）。
+        var yanxiaWasRunning = this.yanxia.Running;
+        if (yanxiaWasRunning) this.yanxia.Cancel("利用者が「Auto-Gatherに停止」を押しました");
         var relayWasActive = this.relay.Active;
         if (relayWasActive) this.relay.Stop("利用者が「Auto-Gatherに停止」を押しました");
         if (on == false)
-            return relayWasActive ? "ベンチャー回収の見張りを止めました（GBR の自動採集は止まっています）" : GatherProfileController.StoppedText;
+            return relayWasActive || yanxiaWasRunning ? "ベンチャー回収の見張り・ヤンサの山越えを止めました（GBR の自動採集は止まっています）" : GatherProfileController.StoppedText;
         var ok = this.gatherBuddy.SetAutoGatherEnabled(false);
         this.log.Write("GBR", ok ? "「Auto-Gatherに停止」で自動採集を止めました" : "「Auto-Gatherに停止」：自動採集を止められませんでした");
         return ok ? "GBR の自動採集を止めました" : "GBR の自動採集を止められませんでした";
@@ -291,7 +307,7 @@ public sealed class Plugin : IDalamudPlugin
         return this.gatherBuddy.IsAutoGatherEnabled() switch
         {
             null => "GBR の状態を読めません",
-            false when !this.relay.Active => GatherProfileController.StoppedText,
+            false when !this.relay.Active && !this.yanxia.Running => GatherProfileController.StoppedText,
             _ => null,
         };
     }

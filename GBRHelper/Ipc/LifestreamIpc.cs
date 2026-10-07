@@ -47,4 +47,16 @@ public sealed class LifestreamIpc : IpcGate
     /// <summary>Lifestream の処理を中断する。自分が頼んだ移動のときだけ呼ぶこと。</summary>
     public bool TryAbort()
         => this.TryAction("Abort", () => this.Func<object>("Lifestream.Abort").InvokeAction());
+
+    /// <summary>
+    /// エーテライトへテレポする（ヤンサの山越え。2026-10-07）。
+    /// 導入版 2.5.4.23 の IPCProvider.cs：[EzIPC] public bool Teleport(uint destination, byte subIndex) → TeleportService.TeleportToAetheryte。
+    /// 中身はゲームの「テレポを使えるか」（ActionManager.GetActionStatus(Action, 5)）・動けるか・アクセス済みかを見て、
+    /// 良ければ Telepo.Teleport を呼んで true、だめなら何もせず false（accepted）。作業列には積まれないので IsBusy は立たない。
+    /// 戻り値は「呼び出しで例外が出なかったか」。着いたかは、こちらで位置を見て確かめる。
+    /// </summary>
+    public bool TryTeleport(uint aetheryteId, byte subIndex, out bool accepted)
+        => this.TryInvoke("Teleport",
+            () => this.Func<uint, byte, bool>("Lifestream.Teleport").InvokeFunc(aetheryteId, subIndex),
+            out accepted);
 }

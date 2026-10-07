@@ -150,6 +150,12 @@ public sealed class Configuration : IPluginConfiguration
     /// </summary>
     public bool TranslationOn { get; set; } = true;
 
+    /// <summary>
+    /// ヤンサの山越えの「有効」。既定は ON。
+    /// 9 月の GbrVentureRelay の「ヤンサの迂回」の設定（YanxiaShortcutEnabled。09-25 に外した）とは別の名前にして、古い値を読まない。
+    /// </summary>
+    public bool YanxiaShortcutOn { get; set; } = true;
+
     /// <summary>最後に右ペインに出していた機能の名前（起動時にそれを選び直す）。</summary>
     public string LastSelectedFeature { get; set; } = string.Empty;
 

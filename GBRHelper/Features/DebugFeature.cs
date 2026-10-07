@@ -12,7 +12,7 @@ namespace GBRHelper.Features;
 /// GBR の日本語表示の状態（フック・辞書・訳している文言の種類・タブを戻した回数・例外）と、
 /// 「訳の無かった英語を集める」（辞書を足すための記録）をここに置く（日本語表示の画面からは外した）。
 /// </summary>
-public sealed class DebugFeature(TranslationFeature translation) : IFeature
+public sealed class DebugFeature(TranslationFeature translation, YanxiaShortcut? yanxia = null) : IFeature
 {
     public const string FeatureName = "デバッグ";
 
@@ -49,6 +49,14 @@ public sealed class DebugFeature(TranslationFeature translation) : IFeature
 
         if (translation.Table is { } t)
             ImGui.TextUnformatted($"辞書：{t.ExactCount:N0} 件（決まった文）＋ {t.TemplateCount:N0} 件（数値などが入る文）");
+
+        // ヤンサの山越え（2026-10-07）：なぜテレポした／しなかったか（帯の範囲が合っているかは、実際の判断を見ないと分からない）
+        if (yanxia is not null)
+        {
+            ImGui.Separator();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, "ヤンサの山越え");
+            ImGui.TextWrapped($"直近の判断：{(yanxia.Diagnosis.Length != 0 ? yanxia.Diagnosis : "（まだ見ていません）")}・テレポした回数 {yanxia.Count}");
+        }
 
         ImGui.Separator();
 

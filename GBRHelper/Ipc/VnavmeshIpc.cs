@@ -124,6 +124,18 @@ public sealed class VnavmeshIpc : IpcGate
         return false;
     }
 
+    /// <summary>
+    /// いま歩いている（飛んでいる）経路の残りの点（最後の点が行き先）。経路が無ければ空、読めなければ null。
+    /// IPC は vnavmesh.Path.ListWaypoints（IPCProvider.cs:45）。GBR は vnavmesh に経路を求めさせ、その点の並びを
+    /// Path.MoveTo で渡して動かす（GBR の AutoGather.Movement.cs 271・381）ので、これを読めば GBR の行き先が分かる。
+    /// ⚠ 誰が積んだ経路かは区別しない。GBR の自動採集が ON で、こちらが動かしていない場面でだけ使う（ヤンサの山越え）。
+    /// </summary>
+    public System.Collections.Generic.List<Vector3>? ListWaypoints()
+        => this.TryInvoke("Path.ListWaypoints",
+            () => this.Func<System.Collections.Generic.List<Vector3>>("vnavmesh.Path.ListWaypoints").InvokeFunc(), out var points)
+            ? points ?? []
+            : null;
+
     /// <summary>移動を止める。自分が始めた移動のときだけ呼ぶこと。</summary>
     public bool Stop()
         => this.TryAction("Path.Stop",
