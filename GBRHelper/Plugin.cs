@@ -111,8 +111,10 @@ public sealed class Plugin : IDalamudPlugin
                 ? GatherProfileController.BusyText
                 : null;
 
+        // リストの作り直しを待たせるのは、BusyReason のうち「自動採集へ戻している」段を除いたとき（RelayController.BlocksListWrites。2026-10-07）。
+        // 画面のボタン・ほかの機能の自動の作り直しは、いままでどおり BusyReason で止める。
         this.gatherProfiles = new GatherProfileController(this.config, catalogBuilder, completionReader, listAccess,
-            this.gatherBuddy, timedAccess, () => BusyReason() is not null);
+            this.gatherBuddy, timedAccess, () => this.innTest.Running || RelayController.BlocksListWrites(this.relay.Current));
 
         // 現在のキャラクターだけ操作する。旧 Link の送信・受信・Mirror は起動しない。
         this.innTest.StartBlocked = () => !ready || InnTestRunner.Blocked(relay.Active, gatherBuddy.IsAutoGatherEnabled());
@@ -126,8 +128,10 @@ public sealed class Plugin : IDalamudPlugin
             this.gatherBuddy, BusyReason, this.gatherProfiles);
         this.features.Add(unvisited);
         var stock = new StockFeature(catalogBuilder, completionReader, listAccess,
-            this.gatherBuddy, timedAccess, BusyReason, this.gatherProfiles);
+            this.gatherBuddy, timedAccess, BusyReason, this.gatherProfiles, this.log);
         this.features.Add(stock);
+        // ベンチャー回収から自動採集へ戻す前に、希望所持数のリストをリテイナーの数に合わせる（2026-10-07）。
+        this.relay.ResumeBlocked = stock.ResumeWait;
 
         // Crafting Listsから末端素材抽出（GBR の「Artisan から読み込む」と同じ中身を GBRHelper の画面から）。
         // 伝承録を読んでいないと採れない素材は外す（2026-10-06。解放採取・補充・霊砂と同じ品の一覧と判定を使う）。

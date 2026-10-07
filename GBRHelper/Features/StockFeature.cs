@@ -10,7 +10,8 @@ using GBRHelper.Ui;
 namespace GBRHelper.Features;
 
 public sealed class StockFeature(LiveCatalogBuilder builder, GatheringCompletionReader reader,
-    GbrAutoGatherListAccess lists, GatherBuddyIpc gbr, GbrTimedAccess access, Func<string?> busyReason, GatherProfileController profiles) : IFeature
+    GbrAutoGatherListAccess lists, GatherBuddyIpc gbr, GbrTimedAccess access, Func<string?> busyReason, GatherProfileController profiles,
+    RunLog log) : IFeature
 {
     private bool busy() => busyReason() is not null;
 
@@ -51,6 +52,13 @@ public sealed class StockFeature(LiveCatalogBuilder builder, GatheringCompletion
         // 吹き出しで乗せている品のリテイナーの数を読む（画面の表示だけ）。
         retainerCounts.Tick();
 
+        // 希望所持数の帯の GBR のリストを、いまのリテイナーの数に合わせて保つ（GBR の自動採集が止まっているときだけ。2026-10-07）。
+        if (DateTime.UtcNow >= nextDesiredCheck)
+        {
+            nextDesiredCheck = DateTime.UtcNow.AddSeconds(5);
+            SyncDesiredLists();
+        }
+
         // リテイナーの在庫の見張りは、リテイナーも数えるときだけ（いまは数えない。GatherProfiles.StockUsesRetainers）。
         if (!GatherProfiles.StockUsesRetainers) return;
         if (character == 0 || busy() || gbr.IsAutoGatherEnabled() != true) return;
@@ -69,6 +77,113 @@ public sealed class StockFeature(LiveCatalogBuilder builder, GatheringCompletion
     }
 
     private string Tag => profiles.Tag(GatherProfileKind.Stock);
+
+    private DateTime nextDesiredCheck;
+
+    // 見張り（FindDesiredChange）が鞄の数・レベル・リテイナーの数を読む口。リストを作るとき（GatherProfileController.Build）と同じ読み方。
+    // 試験ではリフレクションで偽物に差し替える（ゲームの鞄・Allagan Tools が無いため）。
+    private Func<uint, int?> bagCount = MaterialInventory.Local;
+    private Func<GatherableCatalog.Job, int> levelOf = MaterialInventory.Level;
+    private Func<Dictionary<uint, int>> readRetainers = AllaganRetainerCounter.ReadAll;
+
+    /// <summary>
+    /// 希望所持数の帯の GBR のリストが、いまのリテイナーの数・鞄の数とずれていたら作り直しを頼む（判断は DesiredStockSync）。
+    /// GBR の自動採集が止まっていて、ほかの自動処理も無く、ほかの書き直しも待っていないときだけ（GBR は止めない。RefreshWhenStopped）。
+    /// リテイナーへ預けた・引き出したあと、利用者が「Auto-Gatherに追加」を押し直さなくても数が合うようにするため。
+    /// ベンチャー回収から戻るときは ResumeWait が同じことをする。
+    /// </summary>
+    private void SyncDesiredLists()
+    {
+        if (profiles.Character == 0 || gbr.IsAutoGatherEnabled() != false || busyReason() is not null || profiles.Pending)
+            return;
+        if (FindDesiredChange() is not { } found)
+            return;
+        log.Write("機能", $"全素材の補充：{Describe(found.Key, found.Change)}ので、希望所持数のリストを作り直します");
+        profiles.RefreshWhenStopped(GatherProfileKind.Stock);
+    }
+
+    /// <summary>ベンチャー回収から戻る前に、希望所持数のリストを作り直しているときの文（RelayController の Detail に出る）。</summary>
+    public const string ResumeWaitText = "全素材の補充のリストを、リテイナーの数に合わせています";
+
+    /// <summary>
+    /// ベンチャー回収から自動採集へ戻す前に待つ理由（待たなくてよければ null。RelayController.ResumeBlocked）。
+    /// 回収でリテイナーの数が変わることがある（ベンチャーの戦利品はリテイナーの持ち物に入る・AutoRetainer の預け入れで鞄から移る）。
+    /// 希望所持数のリストが古いまま GBR を戻すと、鞄から移った分まで採り直すので、作り直してから戻す。
+    /// 読めない（Allagan Tools が準備中など）・作り直しを頼めないときは待たない（そのまま戻し、次に GBR が止まったときに SyncDesiredLists で合わせる）。
+    /// </summary>
+    public string? ResumeWait()
+    {
+        if (profiles.Character == 0 || !HasDesiredBands())
+            return null;
+        if (profiles.PendingFor(GatherProfileKind.Stock))
+            return ResumeWaitText;
+        if (FindDesiredChange() is not { } found)
+            return null;
+        profiles.RefreshWhenStopped(GatherProfileKind.Stock);
+        if (!profiles.PendingFor(GatherProfileKind.Stock))
+            return null;
+        log.Write("機能", $"全素材の補充：{Describe(found.Key, found.Change)}ので、希望所持数のリストを作り直してから自動採集へ戻します");
+        return ResumeWaitText;
+    }
+
+    /// <summary>今のキャラクターに、GBR に反映した希望所持数の帯があるか。</summary>
+    private bool HasDesiredBands()
+        => DesiredKeys(profiles.Profiles.GetValueOrDefault(profiles.Character)).Length > 0;
+
+    /// <summary>GBR に反映した帯のうち、希望所持数の帯（反映した時点の設定で見る。GatherProfile.AppliedDesired）。</summary>
+    private int[] DesiredKeys(GatherProfile? profile)
+        => profile is null ? [] : GatherProfiles.Effective(profiles.Profiles, profiles.Character, GatherProfileKind.Stock)
+            .Where(profile.AppliedDesired).Order().ToArray();
+
+    /// <summary>
+    /// 希望所持数の帯で、リストを作り直すきっかけ（最初に見つかった帯と品）。作り直さなくてよければ null。
+    /// リテイナーの数・鞄の数・品の一覧を読めないときも null（判断しない。推測で作り直さない）。
+    /// 品の選び方・鞄の数え方はリストを作るとき（GatherProfileController.Build）と同じ。
+    /// </summary>
+    private (int Key, DesiredStockSync.Change Change)? FindDesiredChange()
+    {
+        var profile = profiles.Profiles.GetValueOrDefault(profiles.Character);
+        var keys = DesiredKeys(profile);
+        if (profile is null || keys.Length == 0)
+            return null;
+        catalog ??= builder.Build();
+        if (catalog is null)
+            return null;
+        Dictionary<uint, int> retainers;
+        try { retainers = readRetainers(); }
+        catch { return null; }
+
+        foreach (var key in keys)
+        {
+            var (job, band) = GatherProfiles.Decode(key);
+            var level = levelOf(job);
+            var ids = catalog.InBand(job, band).Where(e => MaterialPlan.CanStock(e, level, reader.FolkloreOk)).Select(e => e.ItemId).Distinct().ToArray();
+            var bag = new Dictionary<uint, int>();
+            foreach (var id in ids)
+            {
+                if (bagCount(id) is not { } n) return null;
+                bag[id] = n;
+            }
+            var now = DesiredStockSync.Measure(ids, bag, retainers, profile.AppliedQuantity(key));
+            if (DesiredStockSync.Find(profiles.DesiredBasis(key), now) is { } change)
+                return (key, change);
+        }
+        return null;
+    }
+
+    /// <summary>作り直すきっかけの説明（記録に出す）。</summary>
+    private string Describe(int key, DesiredStockSync.Change change)
+    {
+        var (job, band) = GatherProfiles.Decode(key);
+        var label = $"{(job == GatherableCatalog.Job.Miner ? "採掘" : "園芸")} Lv{band.MinLevel}～Lv{band.MaxLevel}";
+        var name = catalog?.InBand(job, band).FirstOrDefault(e => e.ItemId == change.ItemId)?.Name ?? $"品 {change.ItemId}";
+        return change.Reason switch
+        {
+            DesiredStockSync.Reason.RetainerChanged => $"{label} の {name} のリテイナーの数が {change.Before} → {change.After} 個に変わった",
+            DesiredStockSync.Reason.Shortage => $"{label} の {name} が鞄で減り、希望所持数に足りなくなった",
+            _ => $"{label} のリストを作ったときの数を覚えていない（ログインし直した・プラグインを読み直した）",
+        };
+    }
 
     /// <summary>
     /// その帯の、いま GBR にあるこのキャラクターの補充のリストの名前（無ければ空）。
@@ -112,9 +227,12 @@ public sealed class StockFeature(LiveCatalogBuilder builder, GatheringCompletion
                 var data = new StockBand { Key = key };
                 if (owned.FirstOrDefault(x => x.Owned!.Key == key) is { List: { } own })
                     data.Registered = own.Enabled ? 1 : 2;
+                // 希望所持数の帯は、決めた目標を使わない（リストは毎回「数 − いまのリテイナーの数」で作るので、候補も目標なしで出す。2026-10-07）。
+                var fixedTargets = profile is null || profile.AppliedDesired(key) || profile.StockDesiredTotal.Contains(key)
+                    ? null : profile.StockTargets.GetValueOrDefault(key);
                 if (catalog is not null && counts is not null && snapshot is not null)
                     data.Items = MaterialPlan.Candidates(catalog.InBand(job, band), levels[job], reader.FolkloreOk, counts,
-                        UnvisitedPlan.ConflictingItemIds(snapshot, ListName(job, band), Tag), profile?.StockTargets.GetValueOrDefault(key));
+                        UnvisitedPlan.ConflictingItemIds(snapshot, ListName(job, band), Tag), fixedTargets);
                 panel.Bands.Add(data);
             }
         localPanel = panel;
@@ -328,11 +446,19 @@ public sealed class StockFeature(LiveCatalogBuilder builder, GatheringCompletion
 
         var n = profiles.Quantity(job, band);
         var desired = profiles.DesiredTotal(job, band);
-        ImGui.TextUnformatted(selected ? $"登録している品：{rows.Count}件"
+        // 希望所持数でない帯は、リテイナーの数を読まない（吹き出しにも出さない）。
+        (bool Known, int? Count, string Error) notRead = (true, 0, "");
+        var lines = rows.Select(r => (Row: r, Retainer: desired ? retainerOf(r.ItemId) : notRead)).ToList();
+        // 希望所持数の帯の件数は、足りていない品（GBR のリストに入る品）だけ数える（2026-10-07。前は「足りているので採りません」の品も数えていた）。
+        // リテイナーの数をまだ読めていない品があるうちは、候補の件数のまま。
+        var registered = desired && lines.All(l => l.Retainer.Known && l.Retainer.Count is not null)
+            ? lines.Count(l => (long)l.Row.Held + l.Retainer.Count!.Value < n)
+            : rows.Count;
+        ImGui.TextUnformatted(selected ? $"登録している品：{registered}件"
             : desired ? $"チェックを入れると、鞄とリテイナーの合計が{n}個になるまで採取してきます。"
             : $"チェックを入れると、{n}個ずつ採取してきます。");
 
-        foreach (var row in rows)
+        foreach (var (row, (known, retainer, error)) in lines)
         {
             if (!desired)
             {
@@ -340,7 +466,6 @@ public sealed class StockFeature(LiveCatalogBuilder builder, GatheringCompletion
                 continue;
             }
 
-            var (known, retainer, error) = retainerOf(row.ItemId);
             if (!known)
             {
                 ImGui.TextUnformatted($"{row.Name}：鞄{row.Held}・リテイナー 読み込み中");

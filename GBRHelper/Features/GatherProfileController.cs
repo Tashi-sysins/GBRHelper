@@ -28,6 +28,9 @@ public sealed class GatherProfileController(Configuration config, LiveCatalogBui
     /// <summary>リストの書き直しを待っているか。</summary>
     public bool Pending => scope.Count > 0;
 
+    /// <summary>その機能のリストの書き直しを待っているか（ベンチャー回収から戻る前に、全素材の補充の作り直しを待つため。StockFeature.ResumeWait）。</summary>
+    public bool PendingFor(GatherProfileKind kind) => scope.Contains(kind);
+
     private readonly Dictionary<GatherProfileKind, string> statuses = new();
     private string status = "保存した採取リストを確認しています";
 
@@ -304,6 +307,7 @@ public sealed class GatherProfileController(Configuration config, LiveCatalogBui
         sync = new(); removalSync = new(); cycle = new(); retry.Reset();
         nextAttempt = nextIdentityAttempt = default; cachedCatalog = null;
         firstObservation = true; inspectOnLoad = false; allowStop = true; appliedFilled = false;
+        desiredBasis = new();
         reader.InvalidateAll();
     }
 
@@ -604,34 +608,42 @@ public sealed class GatherProfileController(Configuration config, LiveCatalogBui
                 ?? throw new InvalidOperationException(inventory.Error);
             var profile = Get(cid);
             var decided = new List<(int Key, uint ItemId, uint Target)>();
+            var basis = new Dictionary<int, Dictionary<uint, DesiredItemBasis>>();
+            // リテイナーの数は、希望所持数の帯があるときだけ、1 回だけまとめて読む（読めなければ例外＝その回は作らない）。
+            Dictionary<uint, int>? retainerCounts = null;
             foreach (var key in stock.Order())
             {
                 var (job, band) = GatherProfiles.Decode(key);
-                var fixedTargets = profile.StockTargets.GetValueOrDefault(key);
                 // 数と「希望所持数」は、「Auto-Gatherに追加」を押した時点のもの（GatherProfile.AppliedQuantity/AppliedDesired）。
                 // チェックを外して数を変えたまま押していない帯を、ログインし直したときなどに新しい数で作らないため。
-                // 「希望所持数」の帯は、まだ目標を決めていない品のリテイナーの数を Allagan Tools から読む（決めた品は読まない）。
-                IReadOnlyDictionary<uint, int>? retainers = null;
-                if (profile.AppliedDesired(key))
-                {
-                    var undecided = catalog.InBand(job, band).Where(e => MaterialPlan.CanStock(e, levels[job], reader.FolkloreOk)
-                        && (fixedTargets is null || !fixedTargets.ContainsKey(e.ItemId))).Select(e => e.ItemId).Distinct();
-                    retainers = AllaganRetainerCounter.ReadNow(undecided);
-                }
-                var rows = MaterialPlan.Stock(catalog.InBand(job, band), levels[job], reader.FolkloreOk, counts, conflicts,
-                    profile.AppliedQuantity(key), fixedTargets, retainers);
-                // 初めて目標を決めた品を覚える（チェックを入れた時点の所持数＋さらに採る数。作り直しでも同じ目標を使うため）。
-                foreach (var r in rows)
-                    if (fixedTargets is null || !fixedTargets.ContainsKey(r.ItemId)) decided.Add((key, r.ItemId, r.Target));
+                // 「希望所持数」の帯は、決めた目標を使わず、毎回いまのリテイナーの数から決め直す（2026-10-07。MaterialPlan.StockBand）。
+                // それ以外の帯は、初めて目標を決めた品を覚える（チェックを入れた時点の所持数＋さらに採る数。作り直しでも同じ目標を使うため）。
+                var desired = profile.AppliedDesired(key);
+                var plan = MaterialPlan.StockBand(catalog.InBand(job, band), levels[job], reader.FolkloreOk, counts, conflicts,
+                    profile.AppliedQuantity(key), desired, desired ? null : profile.StockTargets.GetValueOrDefault(key),
+                    () => retainerCounts ??= AllaganRetainerCounter.ReadAll());
+                decided.AddRange(plan.Decided.Select(d => (key, d.ItemId, d.Target)));
+                if (plan.Basis is not null) basis[key] = plan.Basis;
+                var rows = plan.Rows;
                 if (rows.Count == 0) continue;
                 result.Add(new(GatherProfiles.Name(GatherProfileKind.Stock, key, cid), Tag(GatherProfileKind.Stock),
                     rows.Select(r => (r.ItemId, r.Target)).ToList(), UsesRetainerInventory: GatherProfiles.StockUsesRetainers));
                 if (ListEnabled(GatherProfiles.Name(GatherProfileKind.Stock, key, cid))) conflicts.UnionWith(rows.Select(r => r.ItemId));
             }
             RememberStockTargets(profile, decided);
+            desiredBasis = basis;
         }
         return result;
     }
+
+    /// <summary>
+    /// 希望所持数の帯の、いまの GBR のリストを作ったときの数（キーは GatherProfiles.Key。StockFeature が見張りに使う）。
+    /// 補充のリストを作り直すたびに置き換える（Build）。ログインし直したとき・プラグインを読み直したときは空。
+    /// </summary>
+    private Dictionary<int, Dictionary<uint, DesiredItemBasis>> desiredBasis = new();
+
+    /// <summary>その帯の、いまの GBR のリストを作ったときの数（まだ作っていなければ null）。</summary>
+    public IReadOnlyDictionary<uint, DesiredItemBasis>? DesiredBasis(int key) => desiredBasis.GetValueOrDefault(key);
 
     /// <summary>
     /// 初めて決めた全素材の補充の目標を保存する。保存できなければ元に戻して例外にする

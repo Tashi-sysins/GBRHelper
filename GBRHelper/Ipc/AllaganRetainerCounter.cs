@@ -1,28 +1,28 @@
 using System;
 using System.Collections.Generic;
-using FFXIVClientStructs.FFXIV.Client.Game;
+using System.Linq;
+using GBRHelper.Features;
 
 namespace GBRHelper.Ipc;
 
 /// <summary>
-/// Allagan Tools から、今のキャラクターのリテイナー全員が持つ数を読む（2026-10-05 霊砂・クリスタルの数の欄の「鞄／リテイナー」の表示）。
-/// 画面に出すだけで、採る数の判定には使わない。読めないとき（Allagan Tools が無い・リテイナーを開いていない）は「不明」。
+/// Allagan Tools から、今のキャラクターのリテイナー全員が持つ数を読む。
+/// 使う所：霊砂・クリスタルの数の欄の「鞄／リテイナー」の表示、全素材の補充の「希望所持数」の吹き出しと GBR のリストの数。
+/// 読めないとき（Allagan Tools が無い・まだ準備中・キャラクターが切り替わった直後）は「不明」（推測で 0 にしない。
+/// 0 にすると、リテイナーにある分まで採ってしまうため）。
 ///
-/// 【IPC】実機で確かめた Allagan Tools の IPC をそのまま使う：
+/// 【IPC】Allagan Tools 15.0.13 の IPCService.cs で確かめた（2026-10-07）：
 ///   ・AllaganTools.IsInitialized() → bool
-///   ・AllaganTools.GetCharactersOwnedByActive(false) → 今のキャラクターが持つキャラクター（リテイナーなど）の番号
-///   ・AllaganTools.ItemCount(品, リテイナーの番号, 持ち物の種類) → uint（品質を問わない数）
-///   持ち物の種類はリテイナーの 7 ページとクリスタル欄。リテイナー以外の番号が混じっても、リテイナーの種類で数えるので 0 になる。
-/// 【重さ】1 品につきリテイナーの数×8 回の呼び出しになるので、画面でマウスを乗せた品だけ、10 秒に 1 回まで読む（Tick で読む）。
+///   ・AllaganTools.CurrentCharacter() → Allagan Tools が「今のキャラクター」と見ている番号（ゲームと違えば読まない）
+///   ・AllaganTools.GetCharactersOwnedByActive(false) → 今のキャラクターが持つリテイナーなど（本人を除く）
+///   ・AllaganTools.GetCharacterItems(番号) → その持ち主の持ち物の全部の枠（数値の並び。[2]＝品・[3]＝数・[20]＝持ち物の種類・[23]＝持ち主）
+///   数えるのはリテイナーの 7 ページとクリスタル欄だけ（MaterialInventory.CountRetainerRows。装備・出品欄は数えない）。
+/// 【重さ】リテイナー 1 人につき 1 回の呼び出しで全部の品を数える。
+///   前は 1 品につき「リテイナーの数×8」回 ItemCount を呼んでいたが、ItemCount は呼ぶたびに全キャラクターの全所持品をなめる作りで
+///   （同 IPCService.cs 102-105）、希望所持数のリストを見張るには重すぎたので、2026-10-07 にこの形へ替えた。数は同じ。
 /// </summary>
 public sealed class AllaganRetainerCounter
 {
-    private static readonly int[] RetainerTypes =
-    [
-        (int)InventoryType.RetainerPage1, (int)InventoryType.RetainerPage2, (int)InventoryType.RetainerPage3, (int)InventoryType.RetainerPage4,
-        (int)InventoryType.RetainerPage5, (int)InventoryType.RetainerPage6, (int)InventoryType.RetainerPage7, (int)InventoryType.RetainerCrystals,
-    ];
-
     private readonly Dictionary<uint, (int? Count, DateTime At)> cache = new();
     private readonly HashSet<uint> wanted = new();
 
@@ -53,57 +53,76 @@ public sealed class AllaganRetainerCounter
         this.wanted.Clear();
     }
 
-    /// <summary>ゲームの更新の流れで呼ぶ。画面で乗せている品の数が古ければ読み直す。</summary>
+    /// <summary>ゲームの更新の流れで呼ぶ。画面で乗せている品のどれかが古ければ、リテイナーの持ち物をまとめて読み直す。</summary>
     public void Tick()
     {
-        foreach (var id in this.wanted)
+        var now = DateTime.UtcNow;
+        if (this.wanted.Any(id => !this.cache.TryGetValue(id, out var c) || now - c.At >= TimeSpan.FromSeconds(10)))
         {
-            if (this.cache.TryGetValue(id, out var c) && DateTime.UtcNow - c.At < TimeSpan.FromSeconds(10))
-                continue;
-            this.cache[id] = (this.Read(id), DateTime.UtcNow);
+            Dictionary<uint, int>? all = null;
+            try
+            {
+                all = ReadAll();
+                this.Error = "";
+            }
+            catch (Exception ex)
+            {
+                this.Error = ex.GetBaseException().Message;
+            }
+
+            foreach (var id in this.wanted)
+                this.cache[id] = (all?.GetValueOrDefault(id), now);
         }
 
         this.wanted.Clear();
     }
 
     /// <summary>
-    /// いくつかの品のリテイナーの数をまとめて読む（全素材の補充の「希望所持数」。ゲームの更新の流れで呼ぶ）。
-    /// 1 品でも読めなければ例外（推測で 0 にすると、リテイナーにある分まで採ってしまうため）。
+    /// 今のキャラクターのリテイナー全員が持つ数を、品ごとにまとめて読む（持っていない品は入らない＝0 個）。
+    /// 読めなければ例外（理由の文つき）。ゲームの更新の流れで呼ぶ。
     /// </summary>
-    public static Dictionary<uint, int> ReadNow(IEnumerable<uint> itemIds)
+    public static Dictionary<uint, int> ReadAll()
     {
-        var counter = new AllaganRetainerCounter();
-        var result = new Dictionary<uint, int>();
-        foreach (var id in itemIds)
-            result[id] = counter.Read(id) ?? throw new InvalidOperationException("希望所持数にはリテイナーの数が要ります：" + counter.Error);
-        return result;
+        var pi = Svc.PluginInterface;
+        return Count(
+            () => pi.GetIpcSubscriber<bool>("AllaganTools.IsInitialized").InvokeFunc(),
+            () => pi.GetIpcSubscriber<ulong>("AllaganTools.CurrentCharacter").InvokeFunc(),
+            () => pi.GetIpcSubscriber<bool, HashSet<ulong>>("AllaganTools.GetCharactersOwnedByActive").InvokeFunc(false),
+            owner => pi.GetIpcSubscriber<ulong, HashSet<ulong[]>>("AllaganTools.GetCharacterItems").InvokeFunc(owner),
+            Svc.PlayerState.IsLoaded ? Svc.PlayerState.ContentId : 0);
     }
 
-    private int? Read(uint itemId)
+    /// <summary>
+    /// ReadAll の中身（IPC を引数で受け取る。試験では偽物を渡す）。
+    /// character は今ログインしているキャラクター。Allagan Tools がまだ前のキャラクターを見ていれば読まない。
+    /// </summary>
+    public static Dictionary<uint, int> Count(Func<bool> initialized, Func<ulong> currentCharacter, Func<HashSet<ulong>> ownedByActive,
+        Func<ulong, HashSet<ulong[]>> items, ulong character)
+    {
+        if (character == 0)
+            throw new InvalidOperationException("キャラクター情報の読込みを待っています");
+        if (!Call(initialized))
+            throw new InvalidOperationException("Allagan Tools が準備できていません");
+        if (Call(currentCharacter) != character)
+            throw new InvalidOperationException("Allagan Tools がまだ今のキャラクターに切り替わっていません");
+
+        var total = new Dictionary<uint, int>();
+        foreach (var owner in Call(ownedByActive) ?? [])
+            foreach (var (id, n) in MaterialInventory.CountRetainerRows(Call(() => items(owner)) ?? [], owner))
+                total[id] = (int)Math.Min((long)total.GetValueOrDefault(id) + n, int.MaxValue);
+        return total;
+    }
+
+    /// <summary>IPC を 1 つ呼ぶ（Allagan Tools が無い・古いなどで呼べなければ、理由の文をつけて例外）。</summary>
+    private static T Call<T>(Func<T> ipc)
     {
         try
         {
-            var pi = Svc.PluginInterface;
-            if (!pi.GetIpcSubscriber<bool>("AllaganTools.IsInitialized").InvokeFunc())
-            {
-                this.Error = "Allagan Tools が準備できていません";
-                return null;
-            }
-
-            var owned = pi.GetIpcSubscriber<bool, HashSet<ulong>>("AllaganTools.GetCharactersOwnedByActive").InvokeFunc(false);
-            var count = pi.GetIpcSubscriber<uint, ulong, int, uint>("AllaganTools.ItemCount");
-            long total = 0;
-            foreach (var retainer in owned)
-                foreach (var type in RetainerTypes)
-                    total += count.InvokeFunc(itemId, retainer, type);
-
-            this.Error = "";
-            return (int)Math.Min(total, int.MaxValue);
+            return ipc();
         }
         catch (Exception ex)
         {
-            this.Error = "Allagan Tools から読めません：" + ex.GetBaseException().Message;
-            return null;
+            throw new InvalidOperationException("Allagan Tools から読めません：" + ex.GetBaseException().Message, ex);
         }
     }
 }

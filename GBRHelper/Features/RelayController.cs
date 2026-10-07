@@ -93,6 +93,16 @@ public sealed class RelayController : IDisposable
 
     public bool Active => this.Current != Phase.Off;
 
+    /// <summary>
+    /// その段の間、GBR のリストの作り直し（GatherProfileController）を待たせるか。
+    /// 回収へ向かう・回収している間は待たせる。「自動採集へ戻している」段（Resuming）は待たせない（2026-10-07）：
+    /// その間は GBR が止まっていて、戻す前に全素材の補充の希望所持数のリストをリテイナーの数に合わせて作り直すため
+    /// （StockFeature.ResumeWait。こちらは作り直しが終わるのを ResumeBlocked で待ってから GBR を ON にする。
+    /// Resuming でも待たせると、作り直しは回収の終わりを、回収は作り直しの終わりを待ち合う）。
+    /// </summary>
+    public static bool BlocksListWrites(Phase phase)
+        => phase is not (Phase.Off or Phase.Watching or Phase.Resuming);
+
     /// <summary>これまでに回収した回数。</summary>
     public int CollectedCount { get; private set; }
 
@@ -146,7 +156,8 @@ public sealed class RelayController : IDisposable
     {
         Current = Phase.Off; forceCollectionPending = false; ownsMovement = false;
         bell.Reset(); innTrip.Reset(); requestedInn = null; breakWaitStarted = null;
-        nextAttemptAllowedAt = nextVentureCheck = resumeStartedAt = DateTime.MinValue;
+        nextAttemptAllowedAt = nextVentureCheck = resumeStartedAt = resumeWaitStartedAt = DateTime.MinValue;
+        resumeWaitGaveUp = false;
         consecutiveFailures = 0; CollectedCount = 0; LastResult = ""; Detail = "待機中";
         defaultPending = true; resumeIssued = false; selfIssuedChanges = 0; CooldownReason = "";
     }
@@ -857,6 +868,8 @@ public sealed class RelayController : IDisposable
         this.Detail = "自動採集へ戻しています";
         this.resumeIssued = false;
         this.resumeStartedAt = DateTime.UtcNow;
+        this.resumeWaitStartedAt = DateTime.MinValue;
+        this.resumeWaitGaveUp = false;
     }
 
     /// <summary>失敗が何回続いているか。成功したら 0 に戻す。</summary>
@@ -878,6 +891,19 @@ public sealed class RelayController : IDisposable
 
     /// <summary>自動採集を ON へ戻すのを待つ上限。</summary>
     private static readonly TimeSpan ResumeTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// 自動採集へ戻す前に待つ理由（待たなくてよければ null）。Plugin が入れる（StockFeature.ResumeWait）。
+    /// 回収でリテイナーの数が変わったとき、全素材の補充の「希望所持数」のリストを作り直してから GBR を戻すため（2026-10-07）。
+    /// </summary>
+    public Func<string?> ResumeBlocked { get; set; } = () => null;
+
+    /// <summary>ResumeBlocked で待ち始めた時刻（待っていなければ MinValue）と、上限で待つのをやめたか。</summary>
+    private DateTime resumeWaitStartedAt = DateTime.MinValue;
+    private bool resumeWaitGaveUp;
+
+    /// <summary>ResumeBlocked を待つ上限。過ぎたらそのまま自動採集へ戻す（リストは次に GBR が止まったときに合わせる）。</summary>
+    private static readonly TimeSpan ResumeWaitLimit = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// 自動採集へ戻す。
@@ -902,6 +928,21 @@ public sealed class RelayController : IDisposable
 
         if (!this.resumeIssued)
         {
+            // 戻す前に済ませたいこと（全素材の補充のリストの作り直し）があれば、終わるまで待つ。上限を過ぎたら待たずに戻す。
+            if (!this.resumeWaitGaveUp && this.ResumeBlocked() is { } wait)
+            {
+                if (this.resumeWaitStartedAt == DateTime.MinValue)
+                    this.resumeWaitStartedAt = DateTime.UtcNow;
+                if (DateTime.UtcNow - this.resumeWaitStartedAt <= ResumeWaitLimit)
+                {
+                    this.Detail = wait;
+                    return;
+                }
+
+                this.resumeWaitGaveUp = true;
+                this.log.Write("Relay", $"「{wait}」が {ResumeWaitLimit.TotalSeconds:F0} 秒で終わらないため、そのまま自動採集へ戻します");
+            }
+
             if (!this.SetGatherBuddy(true))
             {
                 this.Stop("自動採集へ戻せませんでした");
@@ -909,6 +950,8 @@ public sealed class RelayController : IDisposable
             }
 
             this.resumeIssued = true;
+            // ON になったかの確かめは、ON にした時点から数える（上の待ちの分で時間切れにしない）。
+            this.resumeStartedAt = DateTime.UtcNow;
             this.log.Write("Relay", "自動採集を再開しました");
             return;
         }

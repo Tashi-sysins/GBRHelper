@@ -36,6 +36,10 @@ public static class MaterialPlan
     /// 【希望所持数】desiredRetainers を渡すと（その帯の「希望所持数」にチェック）、
     ///   「鞄＋リテイナーの合計が add 個になるまで」にする。GBR は鞄だけで数える（リストの UsesRetainerInventory は false）ので、
     ///   GBR へは「add − リテイナーの数」を目標として渡す（鞄がその数になったとき、鞄＋リテイナー＝add）。
+    ///   このときは fixedTargets を使わない（2026-10-07）。目標がリテイナーの数で決まるので、採っても先へ逃げない。
+    ///   前は決めた目標を優先していたため、リストを作ったあとにリテイナーへ預けても「300 個まで採る」のままだった
+    ///   （指摘：黄鉄鉱 鞄 0＋リテイナー 301 なのに GBR のリストは 0/300）。
+    ///   希望所持数の意味は「鞄＋リテイナーの全在庫から、欲しい数との差分をリストに」。
     /// </summary>
     public static List<Row> Stock(IEnumerable<GatherableCatalog.Entry> entries, int level,
         Func<GatherableCatalog.Entry, bool?> folklore, IReadOnlyDictionary<uint, int> counts,
@@ -49,15 +53,41 @@ public static class MaterialPlan
             .Select(e =>
             {
                 var held = counts[e.ItemId];
-                var target = fixedTargets is not null && fixedTargets.TryGetValue(e.ItemId, out var t)
-                    ? t
-                    : desiredRetainers is not null
-                        ? (uint)Math.Max(0L, (long)amount - desiredRetainers.GetValueOrDefault(e.ItemId))
+                var target = desiredRetainers is not null
+                    ? (uint)Math.Max(0L, (long)amount - desiredRetainers.GetValueOrDefault(e.ItemId))
+                    : fixedTargets is not null && fixedTargets.TryGetValue(e.ItemId, out var t)
+                        ? t
                         : (uint)Math.Min((long)held + amount, GatherProfiles.MaxStockTarget);
                 return new Row(e.ItemId, e.Name, target, held);
             })
             .Where(r => r.Held < r.Target)
             .ToList();
+    }
+
+    /// <summary>全素材の補充の 1 つの帯の計画。Decided＝初めて決めた目標（呼んだ側が覚える）、Basis＝希望所持数の帯の、作ったときの数。</summary>
+    public sealed record BandPlan(List<Row> Rows, List<(uint ItemId, uint Target)> Decided, Dictionary<uint, DesiredItemBasis>? Basis);
+
+    /// <summary>
+    /// 全素材の補充の 1 つの帯のリストの中身（GatherProfileController.Build から呼ぶ。ゲーム無しで試せるように分けた）。
+    /// 希望所持数の帯（desired）：決めた目標は使わず・覚えず、いつも「数 − いまのリテイナーの数」で作る（retainers を呼ぶ）。
+    ///   作ったときの数（Basis。DesiredStockSync）も返す。リテイナーの数が変わったら作り直すため。
+    /// それ以外：決めた目標（fixedTargets）を使い、まだ目標の無い品は「今の所持数＋数」に決めて Decided で返す（retainers は呼ばない）。
+    /// </summary>
+    public static BandPlan StockBand(IEnumerable<GatherableCatalog.Entry> inBand, int level,
+        Func<GatherableCatalog.Entry, bool?> folklore, IReadOnlyDictionary<uint, int> counts, IReadOnlySet<uint> conflicts,
+        int add, bool desired, IReadOnlyDictionary<uint, uint>? fixedTargets, Func<IReadOnlyDictionary<uint, int>> retainers)
+    {
+        var entries = inBand.ToList();
+        if (desired)
+        {
+            var held = retainers();
+            var basis = DesiredStockSync.Measure(entries.Where(e => CanStock(e, level, folklore)).Select(e => e.ItemId), counts, held, add);
+            return new(Stock(entries, level, folklore, counts, conflicts, add, null, held), [], basis);
+        }
+
+        var rows = Stock(entries, level, folklore, counts, conflicts, add, fixedTargets);
+        var decided = rows.Where(r => fixedTargets is null || !fixedTargets.ContainsKey(r.ItemId)).Select(r => (r.ItemId, r.Target)).ToList();
+        return new(rows, decided, null);
     }
 
     /// <summary>
@@ -78,16 +108,19 @@ public static class MaterialPlan
                 fixedTargets is not null && fixedTargets.TryGetValue(r.ItemId, out var t) ? t : null))
             .ToList();
 
-    /// <summary>候補の品から、Stock と同じ目標の行を出す（add・desiredRetainers の意味は Stock と同じ）。</summary>
+    /// <summary>
+    /// 候補の品から、Stock と同じ目標の行を出す（add・desiredRetainers の意味は Stock と同じ。desiredRetainers があれば決めた目標は使わない）。
+    /// 希望所持数の帯の候補は、決めた目標なしで作る（Candidates に fixedTargets を渡さない。StockFeature.Refresh）。
+    /// </summary>
     public static List<Row> FromCandidates(IEnumerable<Candidate> candidates, int add,
         IReadOnlyDictionary<uint, int>? desiredRetainers = null)
     {
         var amount = GatherProfiles.ClampQuantity(add);
         return candidates
             .Select(c => new Row(c.ItemId, c.Name,
-                c.FixedTarget ?? (desiredRetainers is not null
+                desiredRetainers is not null
                     ? (uint)Math.Max(0L, (long)amount - desiredRetainers.GetValueOrDefault(c.ItemId))
-                    : (uint)Math.Min((long)c.Held + amount, GatherProfiles.MaxStockTarget)),
+                    : c.FixedTarget ?? (uint)Math.Min((long)c.Held + amount, GatherProfiles.MaxStockTarget),
                 c.Held))
             .Where(r => r.Held < r.Target)
             .ToList();
