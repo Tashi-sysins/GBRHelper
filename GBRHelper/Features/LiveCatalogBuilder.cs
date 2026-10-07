@@ -115,7 +115,7 @@ public sealed class LiveCatalogBuilder
                 {
                     if (e.Key is not uint itemId || e.Value is null)
                         continue;
-                    var view = this.ExtractView(itemId, e.Value);
+                    var view = ExtractView(itemId, e.Value);
                     if (view is null)
                         throw new InvalidOperationException($"Item {itemId} の Log 判定に必要な情報を読めません");
                     result[itemId] = view;
@@ -146,7 +146,7 @@ public sealed class LiveCatalogBuilder
                 var idObj = item.GetType().GetProperty("ItemId", PubInst)?.GetValue(item);
                 if (idObj is not uint itemId)
                     continue;
-                var view = this.ExtractView(itemId, item);
+                var view = ExtractView(itemId, item);
                 if (view is null)
                     throw new InvalidOperationException($"Item {itemId} の Log 判定に必要な情報を読めません");
                 result[itemId] = view;
@@ -156,8 +156,11 @@ public sealed class LiveCatalogBuilder
         return result;
     }
 
-    /// <summary>Gatherable 1 個から必要な値だけ取り出す。</summary>
-    private GbrGatherableView? ExtractView(uint itemId, object gatherable)
+    /// <summary>
+    /// Gatherable 1 個から必要な値だけ取り出す。GBR の型を名前で読むだけで、このクラスの状態は使わない
+    /// （試験から GBR の偽物と実物のゲームデータの Item で呼べるように public static。2026-10-07）。
+    /// </summary>
+    public static GbrGatherableView? ExtractView(uint itemId, object gatherable)
     {
         try
         {
@@ -200,6 +203,10 @@ public sealed class LiveCatalogBuilder
             var treasure = (bool)(t.GetProperty("IsTreasureMap", PubInst)?.GetValue(gatherable)
                 ?? throw new InvalidOperationException("IsTreasureMap が読めません"));
             var notTracked = collectable || always || treasure || categoryId == 0;
+            // 売買できない品（ジョブクエスト・改良・復興などの専用品。全素材の補充から外す。MaterialPlan.CanStock）。
+            // 読めないときに false と推測すると、採れない専用品がリストに入って GBR が止まるので、ほかと同じく失敗にする。
+            var untradable = (bool)(dataType.GetProperty("IsUntradable")?.GetValue(itemData)
+                ?? throw new InvalidOperationException("IsUntradable が読めません"));
 
             // 採集点ごとの職（Multiple のときだけ使う）と伝承録（GatheringNode.FolkloreId。Node.Base.cs:96-98）。
             // 伝承録は「すべての採集点で要る」ときだけ要る品とする（GBR の Folklore 列と同じ。Interface.ItemTab.cs:736-739）。
@@ -237,7 +244,7 @@ public sealed class LiveCatalogBuilder
             }
 
             return new GbrGatherableView(itemId, name, level, gid, gt, notTracked, nodeTypes,
-                GatherableCatalog.RequiredFolkloreBooks(nodeFolklore), collectable || always, treasure, nodeKinds, uptime);
+                GatherableCatalog.RequiredFolkloreBooks(nodeFolklore), collectable || always, treasure, nodeKinds, uptime, untradable);
         }
         catch
         {

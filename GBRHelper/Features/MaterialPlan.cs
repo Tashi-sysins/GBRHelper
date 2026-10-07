@@ -15,8 +15,18 @@ public static class MaterialPlan
         public long Missing => Math.Max(0L, (long)Target - Held);
     }
 
+    /// <summary>
+    /// 全素材の補充に入れる品か。
+    /// 【売買できない品は入れない】（指摘「ジョブクエでしか出ない物まで入れていたら一生掘れない」）。
+    ///   ジョブクエストの専用品（紅蓮の採掘師・園芸師の廃霊鉱・ワイルドポポトなど）は、GBR の目録では普通の採集点の品として載るが、
+    ///   採集点はクエストの途中にしか出ないので、入れると GBR が採れないまま止まる。
+    ///   ゲームデータの確認（2026-10-07・採集点のある採取品 978 品）：売買できない品は 216 品で、どれもマーケットに出せず、
+    ///   どのレシピの材料にも使わない（＝リテイナーに持たせても使い道が無い）。内訳は収集品 114・復興用 72・ジョブクエストなどの専用品 22・改良用 8。
+    ///   「要るクエスト」の印（GatheringItem の RequiredQuest）がある品も、すべて売買できないか収集品だった。
+    ///   品番を書かずに、品の性質（Item.IsUntradable）で見分ける。
+    /// </summary>
     public static bool CanStock(GatherableCatalog.Entry e, int level, Func<GatherableCatalog.Entry, bool?> folklore)
-        => !e.Collectable && !e.TreasureMap && !IsRestoration(e) && e.Level <= level &&
+        => !e.Collectable && !e.TreasureMap && !e.Untradable && !IsRestoration(e) && e.Level <= level &&
             e.NodeKinds != MaterialNodeKinds.None && folklore(e) == true;
 
     /// <summary>

@@ -79,7 +79,9 @@ public sealed class GatherableCatalog
         IReadOnlyList<uint>? FolkloreBooks = null,
         bool Collectable = false, bool TreasureMap = false, MaterialNodeKinds NodeKinds = MaterialNodeKinds.None,
         /// <summary>採集点が出るエオルゼア時間（0〜23 時のビット。全採集点の合わせ）。0 は不明。</summary>
-        uint UptimeHours = 0
+        uint UptimeHours = 0,
+        /// <summary>売買できない品（Item.IsUntradable）。ジョブクエスト・改良・復興などの専用品で、全素材の補充には入れない（MaterialPlan.CanStock）。</summary>
+        bool Untradable = false
     );
 
     /// <summary>構築時の診断情報。「対象 0 件」になる原因を追えるようにする。</summary>
@@ -154,7 +156,7 @@ public sealed class GatherableCatalog
             }
             var venture = ventureItemIds?.Contains(g.ItemId) ?? false;
             foreach (var classifiedJob in jobs)
-                entries.Add(new Entry(g.ItemId, g.GatheringItemId, g.Name, g.Level, classifiedJob, g.IsCollectableOrNotTracked, venture, g.FolkloreBooks, g.Collectable, g.TreasureMap, g.NodeKinds, g.UptimeHours));
+                entries.Add(new Entry(g.ItemId, g.GatheringItemId, g.Name, g.Level, classifiedJob, g.IsCollectableOrNotTracked, venture, g.FolkloreBooks, g.Collectable, g.TreasureMap, g.NodeKinds, g.UptimeHours, g.Untradable));
         }
         // ID 不正は Reader が Unknown にする。未採取（×）には含めない。
         return new GatherableCatalog(entries.ToImmutableArray(),
@@ -319,4 +321,5 @@ public sealed record GbrGatherableView(
     IReadOnlyList<GatherableCatalog.GbrGatheringType>? NodeGatheringTypes = null,
     IReadOnlyList<uint>? FolkloreBooks = null,
     bool Collectable = false, bool TreasureMap = false, MaterialNodeKinds NodeKinds = MaterialNodeKinds.None, // 要る伝承録の品番。null・空＝要らない
-    uint UptimeHours = 0); // 採集点が出るエオルゼア時間（0〜23 時のビット）。0 は不明
+    uint UptimeHours = 0, // 採集点が出るエオルゼア時間（0〜23 時のビット）。0 は不明
+    bool Untradable = false); // 売買できない品（Item.IsUntradable）
