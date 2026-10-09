@@ -7,6 +7,18 @@ using System.Reflection;
 
 namespace GBRHelper.Ipc;
 
+/// <summary>GBR 自身の「Artisan から読み込む」で作られたリストを扱う口（ArtisanImportCleaner が使う。試験では偽物に差し替える）。</summary>
+public interface IGbrArtisanImports
+{
+    IReadOnlyList<GbrAutoGatherListAccess.ImportedList>? ArtisanImportedLists(out object? manager);
+
+    int? SavedArtisanImportCount(string name);
+
+    List<uint>? RemoveItems(object list, Func<uint, bool> remove);
+
+    string LastError { get; }
+}
+
 /// <summary>
 /// GatherBuddyReborn（GBR）の自動採集リスト（AutoGatherList / AutoGatherListsManager）を
 /// リフレクションで触る窓口。
@@ -37,7 +49,7 @@ namespace GBRHelper.Ipc;
 ///   4. 名前の接頭辞だけで所有権を判断しない（Description に Helper の管理タグを埋め込む）。
 ///   5. GBR 自動採集が false かつ Relay 非活動のときだけ呼ばれる前提（呼び出し側で保証）。
 /// </summary>
-public sealed class GbrAutoGatherListAccess
+public sealed class GbrAutoGatherListAccess : IGbrArtisanImports
 {
     private const BindingFlags PubInst = BindingFlags.Public | BindingFlags.Instance;
     private const BindingFlags AnyInst = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
@@ -586,6 +598,146 @@ public sealed class GbrAutoGatherListAccess
                     return false;
             var last = OrderOf(mine[^1]);
             return siblings.Where(x => !mine.Any(m => ReferenceEquals(m, x))).All(x => OrderOf(x) > last);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // GBR 自身の「Artisan から読み込む」で作られたリスト（要望：シャード・クリスタル・クラスターは抽出しない）
+
+    /// <summary>GBR 自身の「Artisan から読み込む」が作るリストの説明（GatherBuddy/AutoGather/Helpers/Reflection.cs:88）。</summary>
+    public const string GbrArtisanImportDescription = "Imported from Artisan";
+
+    /// <summary>GBR の「Artisan から読み込む」で作られたリスト。Handle はリストの入れ物（同じリストかを参照で見分ける）。</summary>
+    public sealed record ImportedList(object Handle, string Name, IReadOnlyList<uint> Items);
+
+    /// <summary>
+    /// 説明が GBR の取り込み（GbrArtisanImportDescription）のリストの一覧。manager は GBR の管理の部品（GBR を読み直したかを見分ける）。
+    /// GBR が無い・読めないときは null。
+    /// </summary>
+    public IReadOnlyList<ImportedList>? ArtisanImportedLists(out object? manager)
+    {
+        manager = null;
+        try
+        {
+            if (this.Manager() is not { } mgr)
+                return null;
+            if (mgr.GetType().GetProperty("Lists", PubInst)?.GetValue(mgr) is not IEnumerable lists)
+            {
+                this.LastError = "GBR の AutoGatherListsManager.Lists に届きません";
+                return null;
+            }
+
+            var result = new List<ImportedList>();
+            foreach (var list in lists.Cast<object>().ToList())
+            {
+                if (list is null)
+                    continue;
+                var t = list.GetType();
+                if (t.GetProperty("Description", PubInst)?.GetValue(list) as string != GbrArtisanImportDescription)
+                    continue;
+                var name = t.GetProperty("Name", PubInst)?.GetValue(list) as string ?? "";
+                var items = (t.GetProperty("Items", PubInst)?.GetValue(list) as IEnumerable)?.Cast<object>()
+                    .Select(i => i?.GetType().GetProperty("ItemId", PubInst)?.GetValue(i)).OfType<uint>().ToList() ?? [];
+                result.Add(new ImportedList(list, name, items));
+            }
+
+            manager = mgr;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            // GBR の取り込みは別のスレッドでリストを足すので、一覧をなめている途中で変わることがある。次の回に読み直す。
+            this.LastError = $"GBR のリストを読めません: {ex.GetBaseException().Message}";
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 保存ファイルにある、その名前で説明が GBR の取り込みのリストの数（GBR が取り込みを保存し終えたかの確かめ）。読めなければ null。
+    /// </summary>
+    public int? SavedArtisanImportCount(string name)
+    {
+        try
+        {
+            var path = this.AutoGatherListsSaveFile();
+            if (path is null || !File.Exists(path))
+            {
+                this.LastError = "GBRの保存ファイルを確認できません";
+                return null;
+            }
+
+            return CountSavedLists(File.ReadAllText(path), name, GbrArtisanImportDescription);
+        }
+        catch (Exception ex)
+        {
+            this.LastError = $"保存内容を確認できません: {ex.Message}";
+            return null;
+        }
+    }
+
+    /// <summary>保存ファイルの中身（リストの配列）で、名前と説明が同じリストの数。形が違えば null。</summary>
+    public static int? CountSavedLists(string json, string name, string description)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
+                return null;
+            return doc.RootElement.EnumerateArray().Count(e => e.ValueKind == System.Text.Json.JsonValueKind.Object
+                && e.TryGetProperty("Name", out var n) && n.ValueKind == System.Text.Json.JsonValueKind.String && n.GetString() == name
+                && e.TryGetProperty("Description", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.String && d.GetString() == description);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// そのリストから remove に合う品を、GBR の RemoveItem（GBR の画面で品を消すのと同じ：消す→保存→そのリストが有効なら採る順を作り直す。
+    /// AutoGatherListsManager.ManipPreset.cs:495-504）で、後ろから消す。消した品番を返す。
+    /// 消したあとに合う品が残っていれば失敗（null。理由は LastError）。
+    /// </summary>
+    public List<uint>? RemoveItems(object list, Func<uint, bool> remove)
+    {
+        try
+        {
+            if (this.Manager() is not { } mgr)
+                return null;
+            var t = list.GetType();
+            var method = mgr.GetType().GetMethod("RemoveItem", PubInst, [t, typeof(int)]);
+            if (method is null)
+            {
+                this.LastError = "GBR の AutoGatherListsManager.RemoveItem が見つかりません（版の違いを確認してください）";
+                return null;
+            }
+
+            List<uint> Ids() => (t.GetProperty("Items", PubInst)?.GetValue(list) as IEnumerable)?.Cast<object>()
+                .Select(i => i?.GetType().GetProperty("ItemId", PubInst)?.GetValue(i) as uint? ?? 0u).ToList() ?? [];
+            var ids = Ids();
+            var removed = new List<uint>();
+            for (var i = ids.Count - 1; i >= 0; i--)
+            {
+                if (!remove(ids[i]))
+                    continue;
+                method.Invoke(mgr, [list, i]);
+                removed.Add(ids[i]);
+            }
+
+            removed.Reverse();
+            if (Ids().Any(remove))
+            {
+                this.LastError = "消したはずの品がリストに残っています";
+                return null;
+            }
+
+            this.LastError = string.Empty;
+            return removed;
+        }
+        catch (Exception ex)
+        {
+            this.LastError = $"GBR のリストから品を消せません: {ex.GetBaseException().Message}";
+            return null;
         }
     }
 

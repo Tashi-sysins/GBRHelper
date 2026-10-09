@@ -64,6 +64,9 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
     /// <summary>シャード・クリスタル・クラスターなので入れなかった素材の名前（2026-10-07）。</summary>
     private List<string> crystalNames = new();
 
+    /// <summary>GBR 自身の「Artisan から読み込む」で作られたリストからも、クリスタル類を外す（2026-10-09。ArtisanImportCleaner）。</summary>
+    private readonly ArtisanImportCleaner gbrImportCleaner = new(lists, id => IsCrystal(Svc.Data, id));
+
     /// <summary>
     /// シャード・クリスタル・クラスターを見分ける Item.FilterGroup の値。GBR の Gatherable.IsCrystal と同じ（GatherBuddy.GameData/Classes/Gatherable.cs:30）。
     /// ゲームデータの確認（2026-10-07）：FilterGroup 11 の品は 6 属性のシャード・クリスタル・クラスターの 18 品だけで、
@@ -124,6 +127,17 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
         {
             this.requested = null;
             this.Run(listId);
+        }
+
+        // GBR 自身の「Artisan から読み込む」で新しくできたリストから、シャード・クリスタル・クラスターを外す。
+        try
+        {
+            if (this.gbrImportCleaner.Tick(DateTime.UtcNow) is { } message)
+                Svc.Log.Information($"[GBRHelper] {message}");
+        }
+        catch (Exception ex)
+        {
+            Svc.Log.Warning($"[GBRHelper] GBR の取り込みのリストを確かめられません: {ex.GetBaseException().Message}");
         }
     }
 
@@ -192,6 +206,10 @@ public sealed class ArtisanFeature(ArtisanListAccess artisan, GbrAutoGatherListA
         // GBR 自身の取り込みの場所の案内（指定の文）。
         using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey))
             ImGui.TextWrapped(GbrImportNote);
+
+        // GBR の取り込みのリストからクリスタル類を外したとき（2026-10-09）。
+        if (this.gbrImportCleaner.LastResult.Length != 0)
+            ImGui.TextColored(ImGuiColors.DalamudGrey, this.gbrImportCleaner.LastResult);
 
         if (this.result.Length != 0)
             ImGui.TextWrapped(this.result);
