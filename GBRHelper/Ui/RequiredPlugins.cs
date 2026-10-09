@@ -106,48 +106,79 @@ public static class RequiredPlugins
         return found.Count > 0 ? RepoStatus.Disabled : RepoStatus.Missing;
     }
 
-    /// <summary>URL が同じか（前後の空白・末尾の「/」・大文字小文字を見ない）。</summary>
-    public static bool SameUrl(string a, string b)
-        => string.Equals(a.Trim().TrimEnd('/'), b.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+    /// <summary>URL が同じか（前後の空白・末尾の「/」・大文字小文字を見ない）。どちらかが null なら違う。</summary>
+    public static bool SameUrl(string? a, string? b)
+        => a is not null && b is not null
+           && string.Equals(a.Trim().TrimEnd('/'), b.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Dalamud の設定（dalamudConfig.json）から、カスタムプラグインリポジトリの一覧を読む。読めなければ null（読むだけで書かない）。
-    /// 形は ThirdRepoList の "$values" の中の Url・IsEnabled（2026-10-08 手元の設定ファイルで確認。型の情報つきで保存されている）。
-    /// "$values" の無い素の配列でも読む。
-    /// </summary>
-    public static IReadOnlyList<(string Url, bool Enabled)>? ReadRepos(string json)
+    // ------------------------------------------------------------------
+    // ワンクリックのインストール（Dalamud の公式の配布（Allagan Tools）も扱う。Dalamud の内部に触る部分は Ipc\PluginInstaller.cs）
+
+    /// <summary>Dalamud が配布元を読み込んだ状態。</summary>
+    public enum RepoLoad
     {
-        try
-        {
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("ThirdRepoList", out var list))
-                return null;
-            if (list.ValueKind == System.Text.Json.JsonValueKind.Object && list.TryGetProperty("$values", out var values))
-                list = values;
-            if (list.ValueKind != System.Text.Json.JsonValueKind.Array)
-                return null;
-            var repos = new List<(string Url, bool Enabled)>();
-            foreach (var r in list.EnumerateArray())
-            {
-                if (r.ValueKind != System.Text.Json.JsonValueKind.Object || !r.TryGetProperty("Url", out var url) || url.ValueKind != System.Text.Json.JsonValueKind.String)
-                    continue;
-                var enabled = r.TryGetProperty("IsEnabled", out var e) && e.ValueKind == System.Text.Json.JsonValueKind.True;
-                repos.Add((url.GetString() ?? "", enabled));
-            }
+        /// <summary>Dalamud の配布元の一覧に入っていない（設定を読み直していない）。</summary>
+        NotListed,
 
-            return repos;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        /// <summary>読み込み中・まだ読んでいない。</summary>
+        Loading,
+
+        /// <summary>読み込めた。</summary>
+        Loaded,
+
+        /// <summary>読み込めなかった（回線・配布元の停止など）。</summary>
+        Failed,
     }
 
     /// <summary>
-    /// Dalamud の設定ファイルの場所。プラグインの設定フォルダ（…\pluginConfigs\GBRHelper）の 2 つ上（XIVLauncher のフォルダ）の dalamudConfig.json。
+    /// Dalamud の配布元の一覧（PluginManager.Repos の PluginMasterUrl・State・IsThirdParty）から、そのプラグインの配布元の読み込み状態を決める。
+    /// State は Dalamud の PluginRepositoryState の名前（Unknown・InProgress・Success・Fail。Dalamud の PluginRepositoryState.cs）。
+    /// 公式の配布（RepoUrls が null）は、第三者の配布元でないもの（Official）を見る。同じ中身の別の URL が 2 つあれば、どちらかが読めていれば読めた。
     /// </summary>
-    public static string DalamudConfigPath(string pluginConfigDirectory)
-        => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(pluginConfigDirectory.TrimEnd('\\', '/')) ?? "") ?? "", "dalamudConfig.json");
+    public static RepoLoad RepoLoadState(Entry entry, IEnumerable<(string? Url, string? State, bool Official)> repos)
+    {
+        var states = repos.Where(r => entry.RepoUrls is { Count: > 0 } urls ? urls.Any(u => SameUrl(u, r.Url)) : r.Official)
+            .Select(r => r.State).ToList();
+        if (states.Count == 0)
+            return RepoLoad.NotListed;
+        if (states.Any(s => s == "Success"))
+            return RepoLoad.Loaded;
+        return states.All(s => s == "Fail") ? RepoLoad.Failed : RepoLoad.Loading;
+    }
+
+    /// <summary>配布一覧の 1 件（Dalamud の AvailablePlugins の manifest から読んだもの）。Official は公式の配布から来たか。</summary>
+    public sealed record Candidate(string? InternalName, string? RepoUrl, int ApiLevel, bool Official = false);
+
+    /// <summary>
+    /// 配布一覧から、入れる版を選ぶ。選べた位置（無ければ -1）と、選べなかった理由を返す。
+    /// 【決めた配布元から来た版だけを選ぶ】配布元を多く登録していると、同じ InternalName の別の人の再配布
+    /// （言語版の改造など）も載っていることがある。名前が最初に合ったものを入れると、意図しない版を入れるおそれがある。公式の配布の品は公式から来た版だけ。
+    /// 【今の Dalamud で読み込める版だけを選ぶ】Dalamud の配布一覧には、API が 1 つ古い版も「古い」と表示するために残っている
+    /// （PluginManager.IsManifestEligible）。入れても読み込めないので選ばない。
+    /// </summary>
+    public static (int Index, string? Why) Pick(Entry entry, IReadOnlyList<Candidate> candidates, int apiLevel)
+    {
+        var sameName = Enumerable.Range(0, candidates.Count)
+            .Where(i => string.Equals(candidates[i].InternalName, entry.InternalName, StringComparison.Ordinal))
+            .ToList();
+        var fromRepo = sameName.Where(i => entry.RepoUrls is { Count: > 0 } urls
+            ? urls.Any(u => SameUrl(u, candidates[i].RepoUrl))
+            : candidates[i].Official).ToList();
+        var usable = fromRepo.Where(i => candidates[i].ApiLevel >= apiLevel).ToList();
+        if (usable.Count > 0)
+            return (usable[0], null);
+
+        var where = RepoName(entry);
+        if (fromRepo.Count > 0)
+            return (-1, $"{where}の {entry.DisplayName} は API {fromRepo.Max(i => candidates[i].ApiLevel)} 向けで、今の Dalamud（API {apiLevel}）では読み込めません。配布元の更新を待ってください");
+        if (sameName.Count > 0)
+            return (-1, $"{entry.DisplayName} が{where}の一覧にありません。ほかの配布元にある同じ名前の版は、別の人の再配布のおそれがあるので入れません");
+        return (-1, $"{entry.DisplayName} が{where}の一覧にありません");
+    }
+
+    /// <summary>配布元の呼び方（文に入れる）。</summary>
+    public static string RepoName(Entry entry)
+        => entry.RepoUrls is { Count: > 0 } urls ? $"配布元（{urls[0]}）" : "Dalamud の公式の配布";
 
     /// <summary>いまの状態。</summary>
     public enum Status

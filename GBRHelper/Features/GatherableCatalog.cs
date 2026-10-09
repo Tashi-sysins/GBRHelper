@@ -18,7 +18,7 @@ namespace GBRHelper.Features;
 ///         GatheringItem の RowId として扱う。指示書 §ソース確認結果）
 ///      旧方式（ベンチャー行だけで目録を作る <see cref="Build"/>）は検証のために残している。
 ///
-/// 【Core/Effects 分離（GCAutoRanker 風）】
+/// 【Core/Effects 分離】
 ///   このクラスは「渡された行を分類する」純粋ロジックで、Lumina も GBR も直接触らない。
 ///   ゲーム依存のデータ取得は呼び出し側（Plugin / Feature）が行い、分類ロジックだけここでテストする。
 ///   指示書：「Core/Effects分離を参考に、ゲームのネイティブ関数をゲーム外テストから直接呼ばず」

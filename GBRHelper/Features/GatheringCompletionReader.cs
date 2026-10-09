@@ -12,7 +12,7 @@ namespace GBRHelper.Features;
 ///
 /// 【分離】
 ///   このクラスはキャッシュと「状態の変換ルール」だけを担う純粋ロジック。
-///   実際の API 呼び出しは <see cref="ICompletionEffects"/> に委ねる（GCAutoRanker 風）。
+///   実際の API 呼び出しは <see cref="ICompletionEffects"/> に委ねる。
 ///   ゲーム外の検証では ICompletionEffects を偽物に差し替える。
 ///
 /// 【指示書で特に求められた挙動】

@@ -20,6 +20,8 @@ namespace GBRHelper.Features;
 ///   ・詰まりを見つけたときの飛び先を烈士庵に決め打ちせず、行き先に近い方にする
 ///   ・GBR を止める・戻すのは、ベンチャー回収の「自分の操作」の数え方を通す（前はベンチャーの見張りが止まって始め直していた）
 ///   ・詰まりの場所に今回の山の斜面を足した
+/// 2026-10-09（0.3.0.15）：要望で北東の尾根（北側から東の松脂・翠銀鉱へ向かう経路が突き抜ける）を帯に足し、
+///   飛び先は「行き先までのあいだに帯の無い方」を先に選ぶようにした（YanxiaRoute.PickAetheryte）。
 /// 【流れ】GBR を OFF（自分の操作として）→ vnavmesh の移動を止める → Lifestream でテレポ → エーテライトの 150m 以内に着いたら GBR を ON。
 ///   GBR は ON になると、いまの場所から行き先へ経路を求め直す（同じ側なので山を越えない）。
 /// 【手を出さないとき】GBR の自動採集が OFF・ヤンサの外・ほかの自動処理中（ベンチャー回収で宿屋へ向かう〜戻す・宿屋の検証・
@@ -41,7 +43,7 @@ public sealed class YanxiaShortcut(Configuration config, RunLog log, VnavmeshIpc
 
     public string Name => "ヤンサの山越え";
 
-    public string Description => "GBR の自動採集がヤンサで山の向こう側へ向かうとき、山に詰まる前に、向こう側のエーテライト（烈士庵・ナマイ村）へテレポします。";
+    public string Description => "GBR の自動採集がヤンサで山（烈士庵とナマイ村のあいだの山と川・北東の尾根）の向こう側へ向かうとき、山に詰まる前に、向こう側のエーテライト（烈士庵・ナマイ村）へテレポします。";
 
     /// <summary>ベンチャー回収（0）のすぐ下。</summary>
     public int SortOrder => 10;
