@@ -37,7 +37,7 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
     private uint territory;
     private NavigationMode connectedMode;
     private bool controlledTest;
-    private string status = "移動改善は無効です", stopResult = "", diagnostic = "";
+    private string status = "移動改善は無効です", stopResult = "";
     public string Name => "採取の移動改善";
     public string Description => "GBRの採掘・園芸経路を検査し、障害物の迂回と角の曲線化を行います。移動・着地・採取はGBRが実行します。";
     public int SortOrder => 20;
@@ -48,8 +48,8 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
         Func<string?> busy, Func<string> stop)
     { this.config = config; this.access = access; timedAccess = new(access); this.gbr = gbr; this.nav = nav; this.busy = busy; this.stop = stop; }
 
-    public NavigationMode Mode => Enum.IsDefined(typeof(NavigationMode), config.GatherNavigationMode) ? (NavigationMode)config.GatherNavigationMode : NavigationMode.Off;
-    public RouteSettings Settings => new(Ground: config.GatherNavigationGround, Flight: config.GatherNavigationFlight, Detours: config.GatherNavigationDetours);
+    public NavigationMode Mode => config.GatherNavigationEnabled ? NavigationMode.Improve : NavigationMode.Off;
+    public RouteSettings Settings { get; } = new(Ground: true, Flight: true, Detours: true);
     public uint Territory => Svc.ClientState.TerritoryType;
     public Vector3 Position => Me.Position;
     public bool IsFlying => Svc.Condition[ConditionFlag.InFlight];
@@ -246,43 +246,11 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
         try { bridge?.Dispose(); connection.ActiveHooks = 0; }
         finally { bridge = null; queries?.Dispose(); queries = null; navigationState = null; connectedOwner = connectedPlugin = connectedNavigation = null; navigationAssembly = null; gbrBinding = navBinding = null; acquisition.Reset(); movement.ResetCurrent(); }
     }
+    // 画面は「有効」のチェックだけ（利用者の指示・0.3.0.18）。移動の記録は今までどおり navigation-traces に残る。
     public void DrawRight()
     {
-        var mode = (int)Mode;
-        if (ImGui.Combo("動作", ref mode, "無効\0観測のみ\0移動改善（実機検証用）\0"))
-        { config.GatherNavigationMode = mode; config.Save(); }
-        ImGui.TextWrapped(status);
-        if (movement.LastFailure is { } failure)
-            ImGui.TextWrapped($"直近の移動中断 {failure.Time.ToLocalTime():MM/dd HH:mm:ss} / {failure.Phase}：{failure.Reason}（取得は観測結果で確認）");
-        ImGui.TextWrapped("初期設定は無効です。角の曲線は、地上は歩ける面、飛行は当たり判定で確かめた線だけ使います。動く物の回避は保証しません。");
-        var ground = config.GatherNavigationGround;
-        if (ImGui.Checkbox("地上の曲線化", ref ground)) { config.GatherNavigationGround = ground; config.Save(); CancelPending(); }
-        var detours = config.GatherNavigationDetours;
-        if (ImGui.Checkbox("衝突検出時の有限迂回", ref detours)) { config.GatherNavigationDetours = detours; config.Save(); CancelPending(); }
-        var flight = config.GatherNavigationFlight;
-        if (ImGui.Checkbox("飛行・着地を含む経路（実機検証用）", ref flight)) { config.GatherNavigationFlight = flight; config.Save(); CancelPending(); }
-        ImGui.TextWrapped("確かめられない線は使わず、GBRの元の経路で続けます。止めるのは、新しく作った線が確かに当たるときと、同じ所で進めなくなるのを繰り返したときだけです。");
-        if (ImGui.Button("Auto-Gatherを停止")) { CancelPending(); stopResult = stop(); }
-        if (stopResult.Length != 0) ImGui.TextWrapped(stopResult);
-        ImGui.Separator();
-        if (ImGui.Checkbox("外部増減を排除した取得確認テスト（次の採取試行から）", ref controlledTest)) acquisition.Reset();
-        ImGui.TextWrapped("このチェックは現在の検証中だけ有効です。売買・移動・精選等による同じ品の増減がある場合は外してください。UI表示・到着だけでは取得成功としません。");
-        if (acquisition.Last is { } sample)
-            ImGui.TextWrapped($"要求品 {sample.RequestedItem} / 本人所持数 {sample.Before?.ToString() ?? "不明"} → {sample.After?.ToString() ?? "不明"} / {sample.Classification}");
-        if (ImGui.Button("診断を書き出す"))
-        {
-            EnsureTrace();
-            Record("diagnostic", bridge?.CurrentRequest, new { Status = status, Settings, Mode, Acquisition = acquisition.Last,
-                Queue = queries?.Pending, Searches = queries?.Searches, FrameMilliseconds = queries?.LastPumpMilliseconds,
-                Dropped = trace?.Dropped, Connection = DiagnosticText() });
-            diagnostic = trace == null ? "診断を保存できません。「診断をコピー」で詳細を取得できます。" : "診断の保存先：" + trace.Path;
-        }
-        ImGui.SameLine();
-        if (ImGui.Button("診断をコピー")) { ImGui.SetClipboardText(DiagnosticText()); diagnostic = "診断をコピーしました"; }
-        if (ImGui.CollapsingHeader("接続・移動の診断詳細")) ImGui.TextWrapped(DiagnosticText());
-        if (ImGui.Button("直近の移動診断を消去")) movement.Clear();
-        if (diagnostic.Length > 0) ImGui.TextWrapped(diagnostic);
-        if (trace?.Dropped > 0 || trace?.Error.Length > 0) ImGui.TextWrapped($"診断の欠落 {trace?.Dropped} / {trace?.Error}");
+        var enabled = config.GatherNavigationEnabled;
+        if (ImGui.Checkbox("有効", ref enabled)) { config.GatherNavigationEnabled = enabled; config.Save(); CancelPending(); }
     }
     public void Dispose() { Disconnect(); trace?.Dispose(); trace = null; }
 }
