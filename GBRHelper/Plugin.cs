@@ -23,7 +23,7 @@ namespace GBRHelper;
 ///     → 自動採集を ON に戻す
 ///
 /// GatherBuddyReborn 本体には手を加えていない。
-/// GBR が公開している IPC（GatherBuddy/Plugin/GatherBuddyIpc.cs）だけを使う。
+/// 採取移動改善を選択したときは、GBRHelper内の版限定managedアダプターがGBRの経路処理を仲介する。
 /// </summary>
 public sealed class Plugin : IDalamudPlugin
 {
@@ -55,6 +55,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly FeatureCatalog features;
     private readonly TranslationFeature translation;
     private readonly YanxiaShortcut yanxia;
+    private readonly GatherNavigationFeature navigation;
 
     /// <summary>GBR の画面への差し込み（OnDraw で置く。置けていなければ null）。</summary>
     private GbrWindowExtras? gbrExtras;
@@ -133,6 +134,11 @@ public sealed class Plugin : IDalamudPlugin
                 ? GatherProfileController.BusyText
                 : null);
         this.features.Add(this.yanxia);
+
+        this.navigation = new GatherNavigationFeature(this.config, gbrConfigAccess, this.gatherBuddy, this.navmesh,
+            () => BusyReason() ?? (this.gatherProfiles.IsWriting || timed.BlocksRelay ? GatherProfileController.BusyText : null),
+            this.StopAutoGather);
+        this.features.Add(this.navigation);
 
         // 現在のキャラクターだけ操作する。旧 Link の送信・受信・Mirror は起動しない。
         this.innTest.StartBlocked = () => !ready || InnTestRunner.Blocked(relay.Active, gatherBuddy.IsAutoGatherEnabled());
@@ -227,6 +233,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private void ResetCharacterState()
     {
+        navigation.ResetCharacter();
         // 外部プラグインには指示せず、このゲーム内の予約・キャッシュだけ破棄する。
         relay.ResetCharacter(); innTest.ResetCharacter(); timedFeature.ResetCharacter();
         gatherProfiles.ResetCharacter(); artisanFeature.ResetCharacter(); yanxia.ResetCharacter();
@@ -292,6 +299,7 @@ public sealed class Plugin : IDalamudPlugin
     /// </summary>
     private string StopAutoGather()
     {
+        navigation.CancelPending();
         var on = this.gatherBuddy.IsAutoGatherEnabled();
         if (on is null) return "GatherBuddyReborn の状態を読めません";
         // ヤンサの山越えのテレポの途中なら、その段取りをやめる（あとで GBR を ON に戻さないように。2026-10-07）。
@@ -377,6 +385,7 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
+        navigation.Dispose();
         Svc.Framework.Update -= this.OnUpdate;
         Svc.Commands.RemoveHandler(CommandName);
         Svc.Commands.RemoveHandler(CommandAlias);

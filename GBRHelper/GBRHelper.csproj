@@ -15,7 +15,7 @@
 
     <Tags>gatherbuddy;gathering;retainer;venture;automation;japanese;translation</Tags>
     <Author>ヌル</Author>
-    <Version>0.3.0.15</Version>
+    <Version>0.3.0.17</Version>
     <RootNamespace>GBRHelper</RootNamespace>
     <AssemblyName>GBRHelper</AssemblyName>
     <Copyright>MIT</Copyright>
@@ -41,6 +41,7 @@
     設定フォルダへ書き出さない（書き出した古い辞書が優先されて、直した訳が効かなくなる罠を避けるため）。
   -->
   <ItemGroup>
+    <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.6" />
     <EmbeddedResource Include="Translation\GbrJa.tsv" LogicalName="GBRHelper.Translation.GbrJa.tsv" />
   </ItemGroup>
 
@@ -89,6 +90,8 @@
       （実測した罠）。manifest・deps.json を先に写し終えてから、DLL を別の Copy で写す。
     -->
     <ItemGroup>
+      <!-- managed経路アダプターの通常ライブラリ。GBR/vnavmesh DLLは同梱しない。 -->
+      <DeployFirst Include="$(OutputPath)MonoMod*.dll;$(OutputPath)Mono.Cecil*.dll" />
       <DeployFirst Include="$(OutputPath)$(AssemblyName).json"
                    Condition="Exists('$(OutputPath)$(AssemblyName).json')" />
       <DeployFirst Include="$(OutputPath)$(AssemblyName).deps.json"

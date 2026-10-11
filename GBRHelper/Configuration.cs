@@ -9,6 +9,12 @@ public sealed class Configuration : IPluginConfiguration
     /// <summary>いまの設定の版。新しく作った設定はこの版になる。</summary>
     public const int CurrentVersion = 2;
 
+    // 0=OFF, 1=観測, 2=実機検証用改善。旧設定・新規キャラは必ずOFF。
+    public int GatherNavigationMode { get; set; }
+    public bool GatherNavigationGround { get; set; } = true;
+    public bool GatherNavigationFlight { get; set; }
+    public bool GatherNavigationDetours { get; set; } = true;
+
     public System.Collections.Generic.Dictionary<ulong, Features.GatherProfile> GatherProfiles { get; set; } = new();
     public System.Collections.Generic.Dictionary<string, Features.ProfileListMemory> GatherListMemory { get; set; } = new();
     public System.Collections.Generic.HashSet<string> GatherListReset { get; set; } = new();

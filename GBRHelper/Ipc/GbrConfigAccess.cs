@@ -23,7 +23,7 @@ namespace GBRHelper.Ipc;
 /// 型は必ず GBR が読み込んだアセンブリから取る（自分の文脈で解決すると別物になる）。
 /// フレームワークのスレッドから呼ぶこと。
 /// </summary>
-public sealed class GbrConfigAccess
+public sealed class GbrConfigAccess(string lookupName = GbrConfigAccess.InternalName)
 {
     public const string InternalName = "GatherBuddyReborn";
 
@@ -128,6 +128,7 @@ public sealed class GbrConfigAccess
     {
         // 握っているものがまだ生きていればそれを使う。
         if (this.plugin is not null && this.entry is not null && this.instanceField is not null
+            && this.entry.GetType().GetProperty("IsLoaded")?.GetValue(this.entry) is true
             && ReferenceEquals(this.instanceField.GetValue(this.entry), this.plugin))
         {
             return this.plugin;
@@ -155,7 +156,7 @@ public sealed class GbrConfigAccess
             {
                 var et = e.GetType();
 
-                if (et.GetProperty("InternalName")?.GetValue(e) as string != InternalName)
+                if (et.GetProperty("InternalName")?.GetValue(e) as string != lookupName)
                     continue;
 
                 if (et.GetProperty("IsLoaded")?.GetValue(e) is not true)
@@ -175,13 +176,24 @@ public sealed class GbrConfigAccess
                 return instance;
             }
 
-            this.LastError = "GatherBuddyReborn が読み込まれていません";
+            this.LastError = lookupName + " が読み込まれていません";
         }
         catch (Exception ex)
         {
-            this.LastError = $"GBR の本体に届きません: {ex.GetType().Name}: {ex.Message}";
+            this.LastError = $"{lookupName} の本体に届きません: {ex.GetType().Name}: {ex.Message}";
         }
 
         return null;
+    }
+
+    // Navigation also needs the original file of a memory-loaded development plugin.
+    internal LoadedPluginBinding ResolveBinding(Action<string>? stage = null)
+    {
+        var dalamud = Svc.PluginInterface.GetType().Assembly;
+        var service = dalamud.GetType("Dalamud.Service`1", throwOnError: true)!;
+        var pmType = dalamud.GetType("Dalamud.Plugin.Internal.PluginManager", throwOnError: true)!;
+        var pm = service.MakeGenericType(pmType).GetMethod("Get", PubStatic)!.Invoke(null, null)!;
+        var installed = (IEnumerable)pmType.GetProperty("InstalledPlugins", PubInst)!.GetValue(pm)!;
+        return LoadedPluginBinding.Resolve(installed, lookupName, stage);
     }
 }
