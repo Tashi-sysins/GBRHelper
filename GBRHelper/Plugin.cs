@@ -56,6 +56,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly TranslationFeature translation;
     private readonly YanxiaShortcut yanxia;
     private readonly GatherNavigationFeature navigation;
+    private readonly VendorAethernetFeature vendorAethernet;
 
     /// <summary>GBR の画面への差し込み（OnDraw で置く。置けていなければ null）。</summary>
     private GbrWindowExtras? gbrExtras;
@@ -139,6 +140,11 @@ public sealed class Plugin : IDalamudPlugin
             () => BusyReason() ?? (this.gatherProfiles.IsWriting || timed.BlocksRelay ? GatherProfileController.BusyText : null),
             this.StopAutoGather);
         this.features.Add(this.navigation);
+
+        this.vendorAethernet = new VendorAethernetFeature(this.config, gbrConfigAccess, this.lifestream, this.log,
+            () => ready && configStore.Character == CurrentCharacter,
+            () => BusyReason() ?? (this.gatherProfiles.IsWriting ? GatherProfileController.BusyText : null));
+        this.features.Add(this.vendorAethernet);
 
         // 現在のキャラクターだけ操作する。旧 Link の送信・受信・Mirror は起動しない。
         this.innTest.StartBlocked = () => !ready || InnTestRunner.Blocked(relay.Active, gatherBuddy.IsAutoGatherEnabled());
@@ -234,6 +240,7 @@ public sealed class Plugin : IDalamudPlugin
     private void ResetCharacterState()
     {
         navigation.ResetCharacter();
+        vendorAethernet.ResetCharacter();
         // 外部プラグインには指示せず、このゲーム内の予約・キャッシュだけ破棄する。
         relay.ResetCharacter(); innTest.ResetCharacter(); timedFeature.ResetCharacter();
         gatherProfiles.ResetCharacter(); artisanFeature.ResetCharacter(); yanxia.ResetCharacter();
@@ -385,6 +392,8 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
+        try { vendorAethernet.Dispose(); }
+        catch (Exception ex) { Svc.Log.Error($"[GBRHelper] 接近補助の解除に失敗しました。ゲームを再起動してください: {ex}"); }
         navigation.Dispose();
         Svc.Framework.Update -= this.OnUpdate;
         Svc.Commands.RemoveHandler(CommandName);

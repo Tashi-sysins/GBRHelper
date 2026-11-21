@@ -62,6 +62,14 @@ public sealed class GbrNavigationBridge : IDisposable
     private OriginalLandingHandoff? originalLanding;
     private HashSet<Vector3> followingOriginal = new();
     private readonly ProgressWatch progress = new();
+    // 飛行中の見直し：停滞の見張り・先の区間の当たり判定・避ける場所（同じ採取先の間だけ覚える）・求め直した回数。
+    private readonly StallWatch stall = new();
+    private readonly OrbitWatch orbit = new();
+    private readonly FlightLookahead lookahead = new();
+    private readonly List<AvoidZone> avoid = new();
+    private int flightReplans;
+    private bool replansExhaustedRecorded;
+    private long nextLookahead;
     private string attemptKey = "";
     public string Status { get; private set; } = "接続準備中";
     public int HookCount => hooks.Count;
@@ -158,9 +166,14 @@ public sealed class GbrNavigationBridge : IDisposable
         ClearFollowing();
         var identity = env.NodeIdentity(snapshot.Destination, node);
         var key = $"{env.Territory}/{item}/{identity}";
-        if (key != attemptKey) { attemptKey = key; attemptId++; revision = 0; }
+        if (key != attemptKey)
+        {
+            attemptKey = key; attemptId++; revision = 0;
+            avoid.Clear(); flightReplans = 0; replansExhaustedRecorded = false;
+        }
         var request = new RouteRequest(session, attemptId, ++requestId, ++generation, ++revision, env.Territory, item, identity,
-            env.Position, snapshot.Destination, correctedDestination.Value, snapshot.Flying, snapshot.Combined, snapshot.Mounting, env.Settings);
+            env.Position, snapshot.Destination, correctedDestination.Value, snapshot.Flying, snapshot.Combined, snapshot.Mounting, env.Settings,
+            avoid.Count > 0 ? avoid.ToArray() : null);
         var next = new RouteTicket(request, snapshot.Task, snapshot.Cancellation, processor.ProcessAsync, env.Mode == NavigationMode.Observe);
         if (!state.Replace(owner, snapshot.Task, snapshot.Cancellation, next.Proxy)) { next.Invalidate(); return; }
         ticket = next;
@@ -172,9 +185,11 @@ public sealed class GbrNavigationBridge : IDisposable
     {
         if (!ReferenceEquals(self, owner)) { orig(self); return; }
         var execute = true;
+        var held = ticket;
         try { execute = BeforeHandle(); }
         catch (Exception ex) { Fault(ex); ResetPending(); if (blockedRequest != null) execute = false; }
         if (!execute) return; // the whole existing Stop/MoveTo/state/Dismount transaction is skipped
+        try { TrimReachedStart(held); } catch (Exception ex) { Fault(ex); }
         var prior = ticket;
         orig(self); // never retry after an original-method exception
         try
@@ -332,7 +347,11 @@ public sealed class GbrNavigationBridge : IDisposable
         }
         catch (Exception ex) { try { env.Record("movement-diagnostic-error", request, ex.ToString()); } catch { } }
     }
-    private void ClearFollowing() { following = null; followingChanged = false; followingResult = null; originalLanding = null; followingOriginal = new(); }
+    private void ClearFollowing()
+    {
+        following = null; followingChanged = false; followingResult = null; originalLanding = null; followingOriginal = new();
+        stall.Reset(); orbit.Reset(); lookahead.Reset();
+    }
     private void StopPathfinding(Action<object> orig, object self)
     {
         if (ReferenceEquals(self, owner)) { try { ResetPending(); } catch (Exception ex) { Fault(ex); } }
@@ -353,7 +372,10 @@ public sealed class GbrNavigationBridge : IDisposable
             if (own && !reset && following is { } active && env.Mode == NavigationMode.Improve && env.IsCurrent(active))
             {
                 var s = state.Read(owner);
-                var decision = progress.Observe(active, env.Position, Environment.TickCount64, env.StallThresholdSeconds,
+                // 飛んでいる間は飛行の見直し、それ以外は地上の停滞の見張り（前の版のまま）。
+                var flying = s.Flying && env.IsFlying;
+                if (flying) reset = WatchFlight(active, s, pathing);
+                var decision = flying ? ProgressDecision.None : progress.Observe(active, env.Position, Environment.TickCount64, env.StallThresholdSeconds,
                     env.CanMonitorProgress && pathing && s.Task == null && !s.Mounting && !s.Offset && !s.Flying && !active.Flying);
                 if (decision != ProgressDecision.None)
                 {
@@ -373,6 +395,107 @@ public sealed class GbrNavigationBridge : IDisposable
         }
         catch (Exception ex) { Fault(ex); }
         return orig(self, reset ? default : destination, reset ? false : pathing);
+    }
+    /// <summary>
+    /// 飛行中の見直し（GBR の詰まりの判定の入口から毎フレーム呼ばれる）。
+    /// 前の版は出発の時に 1 回だけ経路を確かめ、空中の停滞は GBR 自身のランダムな押し出しに任せていた
+    /// （10-12 嘆きの海：620m 先の壁は出発の時に「確認できない」で、押し出しの後も同じ経路で同じ壁へ戻り 2 分止まった）。
+    /// B：GBR より先に停滞に気づいたら、止まった所を「避ける場所」にして経路を求め直させる。
+    /// A：先の LookaheadDistance までの区間を当たり判定で確かめ、衝突が見つかったら、その所を避ける場所にして求め直させる。
+    /// 求め直しは GBR の StopNavigation を呼ぶだけ：同じフレームで GBR が自分で Navigate を呼び、その要求に避ける場所が付く。
+    /// 1 つの採取先で MaxFlightReplans 回まで。使い切ったら GBR 自身の詰まり対策に任せる（自動採集は止めない）。
+    /// 戻り値 true＝今回は GBR の詰まりの判定を空にする（求め直したので GBR の押し出しを重ねない）。
+    /// </summary>
+    private bool WatchFlight(RouteRequest active, NavSnapshot s, bool pathing)
+    {
+        var c = env.Settings;
+        if (!c.Flight || !c.Detours) return false;
+        if (!(env.CanMonitorProgress && pathing && s.Task == null && !s.Mounting && !env.IsDiving)) { stall.Reset(); return false; }
+        if (flightReplans >= c.MaxFlightReplans)
+        {
+            if (!replansExhaustedRecorded)
+            {
+                replansExhaustedRecorded = true;
+                Status = "飛行中の求め直しの上限に達しました：GBR の詰まり対策に任せます";
+                env.Record("flight-replan-exhausted", active, new { Count = flightReplans, Zones = avoid.ToArray(), Position = env.Position });
+            }
+            return false;
+        }
+        var remaining = env.RemainingWaypoints();
+        if (remaining == null || remaining.Count == 0) return false;
+        var position = env.Position;
+        var now = Environment.TickCount64;
+        if (stall.Observe(position, now, env.StallThresholdSeconds, true))
+        {
+            var heading = Heading(position, remaining, active.Destination);
+            return Replan(active, "flight-stall", "飛行中に進めなくなりました",
+                new AvoidZone(position, heading, c.AvoidRadius, "飛行中の停滞"), null, remaining);
+        }
+        // 次の点の近くで回り続けている（停滞の見張りは 2m 動けば進んだとみなすので気づけない）。
+        if (orbit.Observe(position, remaining[0], now, env.StallThresholdSeconds, c.OrbitRadius, true))
+            return Replan(active, "flight-orbit", "次の点の周りを回り続けています", null, null, remaining);
+        // 着地の後の地上の点と、着地点（または終点）へ降りる最後の線は確かめない。飛行の身体の線は地面すれすれの線で
+        // 地面に当たったと誤って出やすく、着地の切り替えの線は GBR の切り替えの所で別に確かめている。
+        var flightCount = (s.Combined && s.Stage == 3 ? remaining.Count - s.LandCount + 1 : remaining.Count) - 1;
+        if (flightCount <= 0 || now < nextLookahead) return false;
+        nextLookahead = now + 100; // 確かめる間隔（フレームを重くしない。待ってから進むのではない）
+        var look = lookahead.Step(position, remaining, flightCount, c.LookaheadDistance, (a, b) => env.FinalConnection(a, b, true),
+            ignoreNear: c.LookaheadIgnoreNear);
+        if (look.Verdict != LookaheadVerdict.Blocked || look.Segment is not { } segment || look.Probe is not { } probe) return false;
+        var point = probe.Point ?? (segment.From + segment.To) * .5f;
+        // 既に避ける場所として渡した所（それでも公式の経路しか無かった所）では、もう一度求め直さない。
+        if (avoid.Any(z => Vector3.Distance(z.Point, point) <= z.Radius * 2)) return false;
+        return Replan(active, "lookahead-blocked", "先の区間に衝突が見つかりました: " + probe.Reason,
+            new AvoidZone(point, segment.To - segment.From, c.AvoidRadius, "先の区間の衝突"), probe, remaining);
+    }
+    /// <summary>
+    /// 空中で渡す経路（この橋渡しが受け持った要求の結果か、戻した公式の結果）の先頭から、自分のすぐそばの点を外す。
+    /// 空中で求め直すと、求めた瞬間の位置が先頭の点になる。渡すまでに少しでも動くと、vnavmesh はその点（0.25m 以内に
+    /// 入らないと通ったことにしない）の周りを回り続ける（10-12 パーラカの里のエーテライト）。
+    /// GBR は空中で受け取った点の並びをそのまま vnavmesh へ渡すので、渡す直前に同じ並びを直す。
+    /// </summary>
+    private void TrimReachedStart(RouteTicket? held)
+    {
+        if (held == null || !Allowed || !env.IsFlying) return;
+        var s = state.Read(owner);
+        if (!s.Flying || s.Mounting || s.Task is not { IsCompletedSuccessfully: true } task) return;
+        if (!ReferenceEquals(task, held.Proxy) && !ReferenceEquals(task, held.Original)) return;
+        var path = task.Result;
+        var position = env.Position;
+        var candidate = path.ToList();
+        var removed = GbrPathCodec.TrimReached(candidate, position, s.Combined, env.Settings.ReachedRadius);
+        if (removed == 0) return;
+        // Trimming changes the first connector even when processing kept the original route.
+        // Check the point GBR will actually use after removing its marker and passed waypoints.
+        // Leave the original list intact if the new line is blocked, unverified, or empty.
+        var dispatch = GbrPathCodec.ForDispatch(candidate, s.Combined, position, IsPathing);
+        if (dispatch.Count == 0) return;
+        var check = env.FinalConnection(position, dispatch[0], true);
+        if (check.Verdict != Verdict.Clear)
+        {
+            env.Record("dispatch-trim-skipped", held.Request, new { Probe = check, Position = position, First = dispatch[0] });
+            return;
+        }
+        var first = path[0];
+        path.RemoveRange(0, removed);
+        env.Record("dispatch-trim", held.Request, new { Removed = removed, Position = position, Dropped = first, First = path[0] });
+    }
+    private static Vector3 Heading(Vector3 position, List<Vector3> remaining, Vector3 destination)
+    {
+        foreach (var p in remaining) if (Vector3.Distance(p, position) > 1) return p - position;
+        return destination - position;
+    }
+    private bool Replan(RouteRequest active, string kind, string reason, AvoidZone? zone, ProbeResult? probe, List<Vector3> remaining)
+    {
+        flightReplans++;
+        if (zone != null) avoid.Add(zone);
+        Status = "飛行中に経路を求め直します：" + reason;
+        env.Record(kind, active, new { Reason = reason, Position = env.Position, Zone = zone, Probe = probe,
+            Remaining = remaining.Take(32).ToArray(), Count = flightReplans, Limit = env.Settings.MaxFlightReplans });
+        Report(active, "Flight", kind switch { "flight-stall" => "FlightStall", "flight-orbit" => "FlightOrbit", _ => "LookaheadBlocked" }, reason, probe);
+        // GBR の本物の入口を呼ぶ（フックの続きは使わない）。このフレームのうちに GBR が Navigate を呼び直す。
+        Method(owner.GetType(), "StopNavigation").Invoke(owner, null);
+        return true;
     }
     public void ResetPending()
     {

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\GBRHelper\Features\ProfileUpdateCycle.cs" Link="Production\ProfileUpdateCycle.cs" />
+    <Compile Include="..\GBRHelper\Features\UnvisitedPlan.cs" Link="Production\UnvisitedPlan.cs" />
+    <Compile Include="..\GBRHelper\Features\GatherProfiles.cs" Link="Production\GatherProfiles.cs" />
+    <Compile Include="..\GBRHelper\Features\ProfileListSync.cs" Link="Production\ProfileListSync.cs" />
+    <Compile Include="..\GBRHelper\Features\GatherableCatalog.cs" Link="Production\GatherableCatalog.cs" />
+    <Compile Include="..\GBRHelper\Features\GatheringCompletionReader.cs" Link="Production\GatheringCompletionReader.cs" />
+    <Compile Include="..\GBRHelper\Features\MaterialPlan.cs" Link="Production\MaterialPlan.cs" />
+    <Compile Include="..\GBRHelper\Features\DesiredStockSync.cs" Link="Production\DesiredStockSync.cs" />
+  </ItemGroup>
+</Project>

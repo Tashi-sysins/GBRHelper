@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.6" />
+    <Compile Include="..\GBRHelper\Ipc\VendorAethernetBridge.cs" Link="Production\VendorAethernetBridge.cs" />
+    <Compile Include="..\GBRHelper\Navigation\Core\VendorApproachPolicy.cs" Link="Production\VendorApproachPolicy.cs" />
+    <Compile Include="..\GBRHelper\Navigation\Bridge\ManagedHookRuntime.cs" Link="Production\ManagedHookRuntime.cs" />
+  </ItemGroup>
+</Project>

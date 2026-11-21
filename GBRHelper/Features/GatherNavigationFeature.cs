@@ -33,7 +33,7 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
     private object? connectedNavigation;
     private int cancelPending;
     private Assembly? navigationAssembly;
-    private DateTime nextConnect, nextSample;
+    private DateTime nextConnect, nextSample, nextTraceRetry;
     private uint territory;
     private NavigationMode connectedMode;
     private bool controlledTest;
@@ -148,6 +148,9 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
             if (DateTime.UtcNow >= nextSample)
             {
                 nextSample = DateTime.UtcNow.AddMilliseconds(250);
+                // 記録の書き手が書き込みの失敗で止まっていたら、少し間を置いて作り直す（接続し直すまで記録が途切れないように）。
+                if (trace?.Completion.IsCompleted == true && DateTime.UtcNow >= nextTraceRetry)
+                { nextTraceRetry = DateTime.UtcNow.AddSeconds(30); EnsureTrace(); }
                 if (bridge.CurrentRequest is { } request)
                     Record("position", request, new { Position, IsFlying, IsMounted, Gathering = Svc.Condition[ConditionFlag.Gathering],
                         Queue = queries.Pending, Searches = queries.Searches, FrameMilliseconds = queries.LastPumpMilliseconds });
@@ -207,7 +210,7 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
         connectedMode = Mode; territory = Territory;
         connection.Connected(bridge.HookCount);
         Record("connected", null, new { Contract = GbrCompatibilityProfile.Contract, Gbr = GbrCompatibilityProfile.GbrHash,
-            Vnavmesh = GbrCompatibilityProfile.NavHash, Helper = typeof(Plugin).Assembly.GetName().Version?.ToString(),
+            Vnavmesh = connection.Navigation.ActualHash, Helper = typeof(Plugin).Assembly.GetName().Version?.ToString(),
             HelperMvid = typeof(Plugin).Assembly.ManifestModule.ModuleVersionId, ProcessId = Environment.ProcessId,
             Runtime = Environment.Version.ToString(), Mode, Settings, Connection = connection.ToText() });
     }
@@ -223,7 +226,9 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
     }
     private void EnsureTrace()
     {
-        if (trace != null) { connection.StorageError = trace.Error; return; }
+        if (trace != null && !trace.Completion.IsCompleted) { connection.StorageError = trace.Error; return; }
+        // 書き手が止まっていたら（書き込みの失敗など）作り直す。前の版は一度止まると読み込み直すまで記録が残らなかった。
+        if (trace != null) { connection.StorageError = trace.Error; trace.Dispose(); trace = null; }
         try
         {
             trace = new(System.IO.Path.Combine(Svc.PluginInterface.GetPluginConfigDirectory(), "navigation-traces"));
@@ -246,7 +251,7 @@ public sealed class GatherNavigationFeature : IFeature, IBridgeEnvironment, IDis
         try { bridge?.Dispose(); connection.ActiveHooks = 0; }
         finally { bridge = null; queries?.Dispose(); queries = null; navigationState = null; connectedOwner = connectedPlugin = connectedNavigation = null; navigationAssembly = null; gbrBinding = navBinding = null; acquisition.Reset(); movement.ResetCurrent(); }
     }
-    // 画面は「有効」のチェックだけ（利用者の指示・0.3.0.18）。移動の記録は今までどおり navigation-traces に残る。
+    // 画面は「有効」のチェックだけ（利用者の指示・0.3.0.18）。移動の記録は navigation-traces に残る（0.3.0.19 から古いものを消して書き続ける）。
     public void DrawRight()
     {
         var enabled = config.GatherNavigationEnabled;

@@ -246,7 +246,7 @@ public sealed class UnvisitedPlan
     ///
     /// GBR は有効なリストどうしで同じ品の目標数を合算する（AutoGatherListsManager.SetActiveItems の Sum）。
     /// 同じ品が 2 本の有効リストに入ると「所持＋1」が「所持×2＋2」になり、余分に採る。そのため、
-    /// - 無効なリストは数えない（GBR も合算しない）
+    /// - 無効なリスト・品単位で無効な行は数えない（GBR も合算しない）
     /// - ほかの Lv 帯・職の Helper のリストも数える（両職で採れる品が採掘と園芸の両方に入らないように）
     /// - 作り直す本人のリスト（同じ名前かつ同じ管理タグ）だけは数えない（置き換えるので）
     /// 同じ名前でも管理タグが無いリストは利用者のものなので、競合として数える。
@@ -264,7 +264,8 @@ public sealed class UnvisitedPlan
             if (list.Name == ownListName && list.Description.Contains(managementTag, StringComparison.Ordinal))
                 continue;
             foreach (var (id, _) in list.Entries)
-                set.Add(id);
+                if (!list.DisabledItems.Contains(id))
+                    set.Add(id);
         }
 
         return set;

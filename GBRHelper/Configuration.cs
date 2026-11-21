@@ -13,6 +13,9 @@ public sealed class Configuration : IPluginConfiguration
     // 前の版で保存された「無効」を引き継がない（利用者の指示で 0.3.0.18 から全員 ON で始める）。地上・飛行・迂回は常に全部使う。
     public bool GatherNavigationEnabled { get; set; } = true;
 
+    /// <summary>購入時の大エーテライト接近を補助する。GBR本体のファイル・設定は変更しない。</summary>
+    public bool VendorAethernetAssistOn { get; set; } = true;
+
     public System.Collections.Generic.Dictionary<ulong, Features.GatherProfile> GatherProfiles { get; set; } = new();
     public System.Collections.Generic.Dictionary<string, Features.ProfileListMemory> GatherListMemory { get; set; } = new();
     public System.Collections.Generic.HashSet<string> GatherListReset { get; set; } = new();

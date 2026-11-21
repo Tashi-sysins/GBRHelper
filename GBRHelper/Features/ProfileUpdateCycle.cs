@@ -55,12 +55,13 @@ public sealed class ProfileUpdateCycle
     /// <summary>
     /// 作るリストに入れない品（ほかの有効なリストにある品。GBR は有効なリストどうしで同じ品の目標数を足すため）：
     /// 利用者の有効なリストと、その回に書き直さない機能の、こちらの有効なリスト。
+    /// 品単位で無効な行は GBR も合算しないため、競合に含めない。
     /// （書き直す機能のこちらのリストは作り直すので入れない。書き直す機能どうしは、解放採取 → 全素材の補充の順に作って避ける）
     /// </summary>
     public static HashSet<uint> ConflictItems(IEnumerable<GbrAutoGatherListAccess.ListSummary> snapshot,
         IReadOnlySet<GatherProfileKind> scope)
         => snapshot.Where(x => x.Enabled && (GatherProfiles.Identify(x) is not { } o || !scope.Contains(o.Kind)))
-            .SelectMany(x => x.Entries).Select(e => e.ItemId).ToHashSet();
+            .SelectMany(x => x.Entries.Where(e => !x.DisabledItems.Contains(e.ItemId))).Select(e => e.ItemId).ToHashSet();
 
     public static bool MustRemove(GatherProfiles.Owned list, ulong cid,
         IReadOnlyDictionary<ulong, GatherProfile> profiles, bool migrated)
