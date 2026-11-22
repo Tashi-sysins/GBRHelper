@@ -833,6 +833,8 @@ public sealed unsafe class GbrTextHooks : IDisposable, ComboGetterBridge.ITextSw
         return true;
     }
 
+    internal bool IsInsideTargetWindow() => !this.disposed && this.Inside();
+
     /// <summary>UTF-8 の文字列を読む。end が 0 なら終端 0 まで。長すぎる・空なら null。</summary>
     private static string? ReadUtf8(nint begin, nint end)
     {

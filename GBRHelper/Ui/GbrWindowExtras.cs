@@ -280,14 +280,16 @@ public sealed unsafe class GbrWindowExtras : IDisposable
     {
         try
         {
-            if (this.InGbrWindow() && SameText(strId, ListSelectorUtf8))
+            if (WindowScope.IsInside(ImGuiWindowStack.Current(), this.gbrWindowId) && SameText(strId, ListSelectorUtf8))
             {
                 var frame = ImGui.GetFrameCount();
                 if (frame != this.buttonFrame)
                 {
                     this.buttonFrame = frame;
                     this.ButtonDraws++;
-                    if (DrawOpenButton(BitConverter.Int32BitsToSingle((int)(size & 0xFFFFFFFF))))
+                    // Material UI renders inside a content child. Place the helper button at that child's left edge.
+                    var width = this.InGbrWindow() ? BitConverter.Int32BitsToSingle((int)(size & 0xFFFFFFFF)) : 0;
+                    if (DrawOpenButton(width))
                         this.openHelper();
                 }
             }

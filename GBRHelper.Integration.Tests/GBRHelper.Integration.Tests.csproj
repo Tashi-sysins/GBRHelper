@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoMod.RuntimeDetour" Version="25.3.6" />
+    <Compile Include="../GBRHelper/Ipc/GbrWindowAccess.cs" Link="Production/GbrWindowAccess.cs" />
+    <Compile Include="../GBRHelper/Translation/MaterialTextAdapter.cs" Link="Production/MaterialTextAdapter.cs" />
+    <Compile Include="../GBRHelper/Translation/TranslationTable.cs" Link="Production/TranslationTable.cs" />
+    <Compile Include="../GBRHelper/Translation/WindowScope.cs" Link="Production/WindowScope.cs" />
+    <Compile Include="../GBRHelper/Navigation/Bridge/ManagedHookRuntime.cs" Link="Production/ManagedHookRuntime.cs" />
+    <None Include="../GBRHelper/Translation/GbrJa.tsv" Link="GbrJa.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

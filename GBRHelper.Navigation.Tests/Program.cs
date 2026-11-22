@@ -20,7 +20,7 @@ if (args.Length > 0 && args[0] == "--verify-installed")
     for (var i = 0; i < 2; i++)
     {
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(args[i + 1])));
-        if (i == 0 ? hash != known[i] : !GbrCompatibilityProfile.IsSupportedNavigationHash(hash))
+        if (i == 0 ? !GbrCompatibilityProfile.IsSupportedGbrHash(hash) : !GbrCompatibilityProfile.IsSupportedNavigationHash(hash))
             throw new Exception("Unexpected installed DLL hash");
         using var asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(args[i + 1]);
         Console.WriteLine($"FILE {asm.Name.Name} {asm.Name.Version} MVID={asm.MainModule.Mvid} SHA256={hash}");

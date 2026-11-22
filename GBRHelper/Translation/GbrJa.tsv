@@ -1,4 +1,4 @@
-# GBRHelper 機能①「GBR の日本語表示」の辞書（GatherBuddyReborn 7.5.6.1 用・2026-10-05 作成）
+# GBRHelper 機能①「GBR の日本語表示」の辞書（GatherBuddyReborn 7.5.6.1 / 7.5.8.3 対応・2026-11-22 追補）
 #
 # 書き方：英語<TAB>日本語[<TAB>種別]
 #   ・「# 」（# と空白）で始まる行と空行は読まない（「#Alarm Groups」のように # の直後が空白でない行は中身）。
@@ -1393,3 +1393,332 @@ Prize Catch	大物狙い
 Identical Cast	セイムキャスト
 Surface Slap	トレードリリース
 Big Game Fishing	大物の知識
+
+# GBR 7.5.8.3: 左メニューと新しい設定ページ（source 3fa7874）
+Browse	調べる
+Plan	採集の計画
+Settings	設定
+Tools	ツール
+Open Vulcan, the crafting window	製作画面「Vulcan」を開く
+Open the collectables window	収集品の画面を開く
+Every item miners and botanists can gather, with where and when to find it	採掘師・園芸師が採れる品と、採集場所・時間を調べられます
+Breaking rocks with a pickaxe or felling trees counts as gathering, why do you ask?	つるはしで岩を割るのも、木を切るのも採集です。何か疑問でも？
+Every fish, with its bait, conditions and uptimes	魚ごとの餌、条件、釣れる時間を調べられます
+There are plenty of fish in the sea. And the air. And the sand. And the lava. And space, for some reason.	魚がいるのは海だけではありません。空、砂、溶岩、なぜか宇宙にも。
+The weather forecast in every zone for the coming days, and the last weather	各エリアの今後の天気と、直前の天気を確認できます
+Yes, 'Gloom' is weather.	「妖霧」も天気の一種です。
+Custom aetherytes and map marker locations for specific nodes	採集点ごとのエーテライトや地図マーカーを設定します
+Lists of items for auto-gather to collect	自動採集で集める品のリストです
+Alarms that tell you when nodes and fish come up	採集点や魚の出現をアラームで知らせます
+Do you often find yourself late for a very important date? Set up your very own alarm clock.	大事な時間を逃しがちなら、自分用のアラームを設定しましょう。
+Gather different things depending on the time of day, and share them with others	時間帯に応じて採る品を切り替え、設定を共有できます
+Presets for the small window that shows only the items you care about	必要な品だけを表示する小窓のプリセットです
+Find, clean up and share the fishing data you have collected	蓄積した釣果データを検索・整理・共有できます
+Fishing Spot Stats	釣り場別の統計
+Your fish records summed up per fishing spot	釣果の記録を釣り場ごとに集計します
+Which actions and consumables auto-gather uses, for which items	品ごとに、自動採集で使うアクションや消耗品を設定します
+Internal data, for troubleshooting	問題の調査に使う内部情報です
+The Vulcan window isn't available.	Vulcan の画面を利用できません。
+The collectables window isn't available.	収集品の画面を利用できません。
+Search settings	設定を検索
+Green (default)	緑（初期値）
+Ocean	海の青
+Teal	青緑
+Forest	森の緑
+Amber	琥珀色
+Violet	すみれ色
+Crimson	深紅
+Auto-Gather settings	自動採集の設定
+How auto-gather moves, gathers, fishes and looks after your gear	自動採集の移動・採集・釣り・装備の手入れを設定します
+Select mount mount roulette	マウント選択・マウントルーレット
+Mount up distance	騎乗する距離
+Landing distance	着地する距離
+The fixed distance from the node at which you will try to land. Used when random landing positions are disabled, or when no collected data is available. Low values make it harder to dismount; high values may produce odd paths. Reasonable values are between 4 and 8 yalms.	採集点の手前で着地を試みる距離です。着地点のランダム化を無効にした場合や、着地点データが無い場合に使います。短すぎるとマウントから降りにくくなり、長すぎると不自然な経路になることがあります。目安は4〜8ヤルムです。
+Begin pathfinding to the next node while summoning a mount.	マウントを呼び出している間に、次の採集点への経路探索を始めます。
+Play a sound when done gathering honk playback volume	採集完了時の音・再生音量
+Play a sound when auto-gathering shuts down because your list is complete.	リストの品を集め終えて自動採集が止まったときに音を鳴らします。
+Playback volume	再生音量
+Check retainer inventories	リテイナーの所持品も数える
+Use Allagan Tools to check retainer inventories when doing inventory calculations.	Allagan Tools を使い、所持数の計算にリテイナーの所持品も含めます。
+Teleport to an upcoming timed node or fishing spot and wait at the aetheryte when there is nothing else to gather. This option has priority over going home when idle.	ほかに採る品が無いとき、次の時間指定の採集点や釣り場へテレポし、エーテライトで待ちます。「待機時に帰宅」より優先されます。
+Uses the '/li auto' command to take you home when done gathering.	採集が終わると「/li auto」コマンドで帰宅します。
+Uses the '/li auto' command to take you home when waiting for timed nodes.	時間指定の採集点を待つ間、「/li auto」コマンドで帰宅します。
+Gather random crystals on any regular node when The Giving Land is available, regardless of the current target item.	「大地の恵み」が使えるときは、現在の対象品に関係なく、通常の採集点でクリスタル類を採ります。
+Use skills when gathering items from fallback presets.	予備リストの品を採るときもアクションを使います。
+Stop gathering and abandon the node when you have gathered enough items, or if the node didn't have any needed items in the first place.	必要数を採り終えた場合や、必要な品が無い採集点だった場合は、その採集点での採集をやめます。
+GBR will always grab maps first if it sees one in a node.	採集点に地図が出ていれば、地図を優先して採ります。
+Use AutoHook global preset	AutoHook のグローバルプリセットを使う
+Clear AutoHook's selected custom preset and let AutoHook use its built-in Global Preset for rod fishing. This takes precedence over both GBR-generated presets and fish ID AutoHook presets. Spearfishing still uses GBR-generated AutoGig presets.	AutoHook で選択中のカスタムプリセットを解除し、竿釣りには内蔵の Global Preset を使います。GBR が生成するプリセットや魚ID名のプリセットより優先されます。刺突漁では引き続き GBR が生成する AutoGig プリセットを使います。
+Use your own AutoHook presets instead of GBR-generated ones. Name your preset using the fish's item ID (for example '46188' for Goldentail); find fish IDs by hovering over fish in the Fish page. Ignored when the AutoHook global preset is in use. Your presets are never deleted; only GBR-generated presets are cleaned up.	GBR が生成するものではなく、自分の AutoHook プリセットを使います。名前は魚のアイテムIDにしてください（例：Goldentail なら「46188」）。IDは「魚」のページで魚にマウスを合わせると確認できます。Global Preset 使用中は無視されます。自分のプリセットは削除されず、整理の対象は GBR が生成したものだけです。
+Max fishing spot minutes	同じ位置で釣り続ける最長時間（分）
+Opt in to fishing data collection	釣果データの収集に同意する
+Whenever you catch a fish, the data for that fish is uploaded to a remote server, to make a usable auto-fishing feature possible. No personal information about you or your character is collected, only data relevant to the caught fish. You can opt out again at any time.	魚を釣るたび、その魚に関するデータをサーバーへ送信し、自動釣り機能の改善に使います。GBR の説明では、本人やキャラクターの個人情報は収集せず、釣った魚に関するデータだけを収集します。同意はいつでも取り消せます。
+Auto collectables	収集品の魚を自動で受け取る
+Auto accept or decline collectable fish based on minimum collectability.	設定した最低収集価値に応じて、釣れた魚を収集品にするか判断します。
+Prevents GBR from stopping fishing for repairs while you have active fishing buffs, like Patience, Surface Slap, Identical Cast or Prize Catch.	ペーシェンス、トレードリリース、セイムキャスト、ビッグフィッシャーなどの効果中は、修理のために釣りを中断しません。
+Prevents GBR from stopping fishing for aetherial reduction while you have active fishing buffs.	釣りの効果が有効な間は、精選のために釣りを中断しません。
+Prevents GBR from stopping fishing for materia extraction while you have active fishing buffs.	釣りの効果が有効な間は、マテリア精製のために釣りを中断しません。
+Use hook timers in AutoHook presets	作るプリセットに当たりの時間帯を入れる
+Manual preset generator AutoHook preset generate fish	AutoHook プリセットの手動作成・対象の魚
+Repair gear when needed repair threshold durability	装備の自動修理・耐久度のしきい値
+Repair gear when it is almost broken.	装備の耐久度が低下したら修理します。
+Repair threshold	修理する耐久度（％）
+Automatically extract materia from items with a complete spiritbond.	錬精度が最大になった装備から、自動でマテリアを精製します。
+Enable aetherial reduction always reduce all items	精選を有効にする・すべての品を精選
+Enable aetherial reduction	精選を使う
+Automatically perform aetherial reduction when idling, or if the number of free inventory slots drops below 20.	待機中、または鞄の空きが20枠未満になったときに、自動で精選します。
+Always reduce all items	いつも全部精選する
+When free inventory slots drop below 20 while gathering, emergency reduction is performed for all items at once instead of only one item type.	採集中に鞄の空きが20枠未満になった場合、1種類だけではなく、精選できる品をまとめて精選します。
+Wait for AutoRetainer multi-mode threshold seconds delay timed nodes	AutoRetainer のマルチモード待ち・待ち始める秒数・時間指定の採集点
+Wait for AutoRetainer multi-mode	AutoRetainer のマルチモードを待つ
+Pause GBR automatically when AutoRetainer has retainers to process during multi-mode.	AutoRetainer のマルチモードで処理すべきリテイナーがいるとき、GBR を一時停止します。
+AutoRetainer threshold	AutoRetainer を待ち始める秒数
+How many seconds before a retainer venture completes GBR should pause and wait for multi-mode.	ベンチャー完了の何秒前から GBR を止め、マルチモードを待つかを設定します。
+Wait to process retainers until after active and upcoming timed nodes are gathered.	現在出現中、またはまもなく出現する時間指定の採集点を採り終えてから、リテイナーを処理します。
+Diadem auto-aethercannon	ディアデムで「エーテルオーガー」を自動で撃つ
+Automatically target and fire the aethercannon at nearby enemies when the gauge is ready (200 or more). Only fires while not pathing, with a 2 second cooldown between uses.	ディアデムでゲージが200以上あるとき、近くの敵に自動で照準を合わせ、エーテルオーガを撃ちます。移動経路を進んでいない間だけ動作し、使用間隔は2秒です。
+Diadem windmire jumps	ディアデムで Windmire を使って島を渡る
+Allows the use of windmires for jumping between islands in the Diadem, when they give a significant distance advantage over normal movement.	ディアデム諸島で、普通に移動するより大きく近道になる場合に、Windmire（島の間を飛ばしてくれる風）を使います。
+Re-enter the Diadem to reset clouded nodes	幻の採集場所を出し直すためディアデムへ入り直す
+Item sorting method location none	品の並べ方・場所順・並べ替えなし
+Item sorting method	品目の並べ方
+What method to use when sorting items internally.	内部処理で品を並べる方法です。
+Lifestream command auto	Lifestream の帰還コマンド
+Lifestream command	Lifestream に渡すコマンド
+The command used when idling or done gathering. Do not include '/li'. Be careful when changing this; GBR does not validate it.	待機時や採集完了時に使うコマンドです。「/li」は含めません。GBR は内容を検査しないため、変更時はコマンドを確認してください。
+Anti-stuck cooldown	引っかかり脱出の間隔（秒）
+The time in seconds before the navigation system resets if you are stuck.	移動が詰まった場合に、移動処理をやり直すまでの秒数です。
+Stuck threshold	引っかかりと判断するまでの秒数
+The time in seconds before the navigation system considers you stuck.	移動が詰まっていると判断するまでの秒数です。
+Timed node precognition	時間指定の採集点を先取りする秒数
+How many seconds before a node is actually up GBR should consider it up.	採集点の実際の出現時刻より何秒前から、出現済みとして扱うかを設定します。
+Execution delay	操作の実行間隔
+Delay executing each action by this amount.	各操作の実行に、この長さの待ち時間を加えます。
+Enable gathering window interaction	採集画面の自動操作を有効にする
+Automatically gather items. Disable this for navigation-only mode; disabling it is unsupported.	品を自動で採集します。無効にすると移動だけを行いますが、その使い方は GBR のサポート対象外です。
+Whether or not to navigate using map markers (timed nodes only).	地図マーカーを使って移動するかを設定します。時間指定の採集点だけが対象です。
+Use vnavmesh navigation	vnavmesh で自動移動する
+Use vnavmesh navigation to move your character automatically.	vnavmesh を使って、キャラクターを自動で移動させます。
+Force walking	飛ばずに地上を移動する
+Disable random landing positions	ランダムな着地点を使わない
+GBR collects the positions where players were seen gathering and lands at one of them at random. Turn this on to use the fixed landing distance instead.	GBR はプレイヤーが採集していた位置を記録し、その中からランダムに着地します。有効にすると、代わりに固定の着地距離を使います。
+Mount	マウント
+The mount auto-gather summons.	自動採集で呼び出すマウントです。
+Manual preset generator	手動でプリセットを作る
+Target fish	対象の魚
+Generate an AutoHook preset for this fish.	この魚の AutoHook プリセットを作成します。
+Preset name	プリセット名
+The preset name should match the fish's item ID for GBR to use it automatically.	GBR に自動で使わせるには、プリセット名を魚のアイテム番号と同じにしてください。
+Generate the preset	プリセットを作成
+Generate preset	プリセットを作る
+The message only goes to your own chat log, whatever the channel; nobody else sees it.	どのチャットチャンネルを選んでも、メッセージは自分のログだけに表示され、ほかの人には見えません。
+Less travel time	移動時間を短くする
+Prefer aetherytes closer to the target.	目的地に近いエーテライトを優先します。
+Cheaper	料金を安くする
+Prefer aetherytes that are cheaper to teleport to.	テレポ料金が安いエーテライトを優先します。
+Gathering settings	採集の設定
+What /gather does, gear sets, alarms and chat messages	/gather の動作、ギアセット、アラーム、チャット表示を設定します
+Gather command	/gather コマンド
+What happens when you use /gather on an item.	品を指定して /gather を使ったときの動作です。
+Preferred job no preference miner botanist	優先するジョブ・指定なし・採掘師・園芸師
+Enable gear change	装備を自動で着替える
+Automatically switch to the correct job gear for a node, using the miner, botanist and fisher sets below.	下で設定した採掘師・園芸師・漁師のギアセットを使い、採集点に合うジョブへ自動で着替えます。
+Enable teleport	自動でテレポートする
+Automatically teleport to the chosen node.	選んだ採集点へ自動でテレポします。
+Open map with location	地図を開いて場所を示す
+Automatically open the map of the node's territory with its gathering location highlighted.	採集点があるエリアの地図を自動で開き、採集場所を示します。
+Place flag marker on map	地図にフラグを立てる
+Automatically set a red flag marker on the approximate location of the chosen node, without opening the map.	地図を開かずに、選んだ採集点のおおよその位置へ赤いフラグを置きます。
+Place custom waymarks	自分で決めたフィールドマーカーを置く
+Place the custom waymarks you have set up for certain locations.	場所ごとに設定しておいたフィールドマーカーを置きます。
+Prefer cheaper aetherytes prefer less travel time aetheryte preference	エーテライトの優先条件・テレポ料金・移動時間
+Skip nearby teleports	近ければテレポートしない
+Skip teleporting if you are in the same map and already closer to the target than the selected aetheryte.	同じエリアにいて、選択されたエーテライトより現在地のほうが目的地に近い場合は、テレポを省きます。
+Add in-game context menus	ゲーム内の右クリックメニューに追加
+Add a 'Gather' entry to in-game right-click menus for gatherable items.	採集できる品の右クリックメニューに、採集の項目を追加します。
+Gear sets	ギアセット
+Used by gear change. The name or the number of each gear set.	着替えに使うギアセットの名前、または番号です。
+Miner set name	採掘師のギアセット名
+Miner set	採掘師のセット名
+The name of your miner set, or its number.	採掘師のギアセットの名前、または番号です。
+Botanist set name	園芸師のギアセット名
+Botanist set	園芸師のセット名
+The name of your botanist set, or its number.	園芸師のギアセットの名前、または番号です。
+Fisher set name	漁師のギアセット名
+Fisher set	漁師のセット名
+The name of your fisher set, or its number.	漁師のギアセットの名前、または番号です。
+Enable alarms	アラームを使う
+Turn all alarms on or off.	すべてのアラームを有効・無効にします。
+Enable alarms in duty	コンテンツ中も鳴らす
+Let alarms trigger while you are bound by a duty.	コンテンツに参加している間もアラームを鳴らします。
+Enable alarms only in-game	ゲームにログインしている間だけ鳴らす
+Only let alarms trigger while you are logged in to a character.	キャラクターにログインしている間だけ、アラームを鳴らします。
+Weather change alarm sound	天気の変化を知らせる音
+Weather change alarm	天候が変わるときの音
+A sound played every 8 Eorzea hours, on regular weather changes.	エオルゼア時間で8時間ごとの、通常の天気の変化に合わせて音を鳴らします。
+Eorzea hour change alarm sound	エオルゼア時間の毎正時を知らせる音
+Eorzea hour change alarm	エオルゼア時間の「時」が変わるときの音
+A sound played every time the Eorzea hour changes.	エオルゼア時間の時刻が1時間進むたびに音を鳴らします。
+Chat messages	チャットへの表示
+Chat type for messages channel	通常メッセージのチャットチャンネル
+Chat type for messages	通常のメッセージを出すチャット
+Chat type for errors channel	エラー表示のチャットチャンネル
+Chat type for errors	エラーを出すチャット
+Print map location	地図の場所をチャットに出す
+Write a map link to the approximate location of the chosen node to chat.	選んだ採集点のおおよその位置への地図リンクを、チャットに表示します。
+Print node uptimes on gather	/gather のとき出現時間を出す
+Print the uptimes of nodes you /gather to chat, if they are not always up.	/gather で指定した採集点に出現時間の制限がある場合、その時間をチャットに表示します。
+Print clipboard information	クリップボードへの保存を知らせる
+Print to chat whenever you copy something to the clipboard. Failures are always printed.	クリップボードへコピーしたときにチャットで知らせます。失敗は、この設定に関係なく表示します。
+Alarm chat format Alarm Item Offset DurationString Location	アラームのチャット書式
+Alarm chat format	アラームの文面
+Identified gatherable chat format Input Item	識別した採集品のチャット書式
+Identified gatherable chat format	見つけた品の文面
+Preferred job	優先する職
+For items both miners and botanists can gather, turn /gather into /gathermin or /gatherbtn. The other job is ignored even on later tries.	採掘師と園芸師の両方で採れる品では、/gather を /gathermin または /gatherbtn として扱います。後から再検索するときも、もう一方のジョブは候補に含めません。
+Aetheryte preference	エーテライトの優先条件
+When an item isn't timed and has several sources, prefer aetherytes closer to the target or cheaper teleports.	時間指定がなく、複数の場所で採れる品について、目的地への近さとテレポ料金のどちらを優先するか選びます。
+Interface settings	画面の設定
+Theme, windows, overlays and colors	配色、ウィンドウ、補助表示を設定します
+Theme	テーマ
+Applies to every GatherBuddy Reborn and Vulcan window.	GatherBuddy Reborn と Vulcan のすべての画面に適用します。
+Accent color color theme scheme	アクセントカラー・配色テーマ
+Text size scale font	文字サイズ・表示倍率
+Text size	文字の大きさ
+Scales the text, on top of Dalamud's own font size.	Dalamud の文字サイズに加えて、文字の表示倍率を調整します。
+Control size element scale buttons switches	ボタン・スイッチ・入力欄の大きさ
+Control size	操作部品の大きさ
+Scales buttons, switches, fields and the other controls.	ボタン、スイッチ、入力欄などの大きさを調整します。
+Spacing padding scale	余白・間隔の倍率
+Spacing	余白の広さ
+Scales the space around and between things, without resizing them.	部品自体の大きさは変えず、周囲や部品同士の間隔を調整します。
+Animation length motion	アニメーションの時間
+Animation length	アニメーションの長さ
+How long animations take, such as folding a window or opening a card. 0% turns them off.	ウィンドウの折りたたみやカードを開く動きの長さです。0%にするとアニメーションを止めます。
+Compact layout	コンパクトな配置
+Tighter padding and shorter rows, so more fits on screen.	余白と行の高さを縮め、画面に多くの項目を表示します。
+Reset sizes	大きさを初期値に戻す
+Main window	メイン画面
+Open on start	起動時に開く
+Show the GatherBuddy window when you start the game.	ゲームを起動したときに GatherBuddy の画面を表示します。
+Escape closes main window	Esc でメイン画面を閉じる
+Pressing Escape while the main window is focused closes it.	メイン画面を操作中に Escape を押すと、画面を閉じます。
+Lock window position	画面の位置を固定する
+Stop the main window from being moved.	メイン画面を移動できなくします。
+Lock window size	画面の大きさを固定する
+Stop the main window from being resized.	メイン画面の大きさを変更できなくします。
+Hotkey to open main interface	メイン画面を開くキー
+Hotkey to open the main window	メイン画面を開くキー
+Opens or closes the main GatherBuddy window.	GatherBuddy のメイン画面を開閉します。
+Show names in weather page	天気のページに天気名を表示する
+Write the weather names in the weather table, instead of only the icons with names on hover.	天気の表に、アイコンだけでなく天気名も表示します。
+Show status line	状態の行を出す
+Hide GatherClippy button	表の使い方ボタン（GatherClippy）を隠す
+Permanently hide the GatherClippy button on the Gatherables and Fish pages.	採集品と魚のページで、GatherClippy ボタンを常に隠します。
+Upcoming windows uptime count	この先の出現時間を何件出すか
+How many gathering windows the upcoming uptimes tooltip lists.	今後の出現時間の説明に、採集可能な時間帯をいくつ並べるか設定します。
+Fish timer	釣りタイマー
+Keep fish records	釣果記録を残す
+Store fish records on your computer. The fish timer needs these for bite timings.	釣果をこのPCに保存します。釣りタイマーのアタリ時間の表示には、この記録が必要です。
+Use local time in records	記録の時刻をふつうの時刻で出す
+Show timestamps on the Fish Records page in local time instead of Unix time.	釣果記録の時刻を、Unix 時間ではなくPCの現地時刻で表示します。
+Show fish timer	釣りタイマーを出す
+Show the fish timer window while fishing.	釣りをしている間、釣りタイマーを表示します。
+Edit fish timer	釣りタイマーを動かせるようにする
+Let the fish timer window be moved and resized.	釣りタイマーの位置と大きさを変更できるようにします。
+Enable fish timer clickthrough	釣りタイマーをクリックが通り抜けるようにする
+Let clicks go through the fish timer, which also turns off its context menus.	クリックを釣りタイマーの背後へ通します。タイマーの右クリックメニューも使えなくなります。
+Hide uncaught fish in fish timer	いまの餌で記録の無い魚を隠す
+Hide fish that have never been recorded with your current combination of snagging and bait.	現在の餌と引掛釣りの組み合わせで、まだ記録がない魚を隠します。
+Hide unavailable fish in fish timer	いま釣れない魚を隠す
+Hide fish with known requirements you don't meet, like Fisher's Intuition or snagging.	漁師の直感や引掛釣りなど、判明している条件を満たしていない魚を隠します。
+Show uptimes in fish timer	釣りタイマーに出現時間を出す
+Show the uptimes of restricted fish in the fish timer window.	出現時間が限られる魚の時間帯を、釣りタイマーに表示します。
+Fish timer bite time scale seconds	釣りタイマーの時間幅（秒）
+Fish timer interval separators	区切り線の本数
+How many interval lines, with their seconds, the timer shows. 0 turns them off.	タイマーに表示する区切り線と秒数の数です。0にすると隠します。
+Fish timer interval rounding digits	釣りタイマーの秒数の小数桁
+Fish timer interval rounding	秒数の小数点以下の桁数
+Round the interval seconds to this many digits after the decimal point. 0 shows whole numbers.	区切り線の秒数を小数点以下の何桁まで表示するか設定します。0なら整数になります。
+Hide catch popup	ゲームの釣果表示を出さない
+Don't show the popup with your caught fish and its size, amount and quality.	釣った魚の名前、大きさ、数、品質を知らせるポップアップを隠します。
+Show collectable hints	収集品の印を出す
+Show whether a fish is collectable in the fish timer window.	魚が収集品になるかを、釣りタイマーに表示します。
+Show multi hook hints	ダブル・トリプルフッキングの印を出す
+Show whether a fish can be double or triple hooked in Cosmic Exploration and Ocean Fishing.	コスミック探索とオーシャンフィッシングで、ダブルフッキングやトリプルフッキングが使える魚かを表示します。
+Fish stats	釣果の集計
+Enable fish stats	釣果の集計を使う
+Adds a page that collects and reports fish stats from your local records. Currently in testing.	このPCの記録から釣果を集計するページを追加します。現在は試験中の機能です。
+Copy time stats when reporting	集計結果のコピーに時間の統計を含める
+Add the minimum and maximum times when copying a report.	集計結果をコピーするとき、最短・最長の時間も含めます。
+Copy size stats when reporting	集計結果のコピーに大きさの統計を含める
+Add the minimum and maximum sizes when copying a report.	集計結果をコピーするとき、最小・最大の大きさも含めます。
+Copy multi hook stats when reporting	集計結果のコピーに複数匹釣りの統計を含める
+Add stats about multi-hook yields when copying a report.	集計結果をコピーするとき、複数匹釣れた数の統計も含めます。
+Enable graphs	グラフを表示する
+Visualise the report data when viewing a fishing spot. Very experimental.	釣り場の集計結果をグラフで表示します。実験的な機能です。
+Gather window	採集小窓
+The small window with your pinned items and their uptimes.	登録した品と採集可能な時間を表示する小窓です。
+Show gather window	採集小窓を出す
+Show a small window with pinned gatherables and their uptimes.	登録した採集品とその出現時間を載せた小窓を出します。
+Anchor gather window to bottom left	左下を基準にする
+The window grows and shrinks from the top instead of the bottom.	画面の下端を基準に、上方向へ伸縮します。
+Show gather window timers	出現時間を出す
+Show the uptimes of the items in the gather window.	採集ウィンドウに、各品の採集可能な時間を表示します。
+Show active alarms in gather window	有効なアラームも出す
+Also show active alarms as a last preset in the gather window, following the window's usual rules.	有効なアラームを最後のプリセットとして追加表示します。表示条件は採集ウィンドウの設定に従います。
+Sort gather window by uptime	出現時間の順に並べる
+Sort the items in the gather window by their uptimes.	採集ウィンドウの品を、採集可能な時間で並べます。
+Show only available items	いま採れる品だけ出す
+Only show the items from your gather window setup that are available right now.	採集ウィンドウに登録した品のうち、今採れる品だけを表示します。
+Hide completed items	目標数に届いた品を隠す
+Hide items you already have the required amount of in your inventory.	鞄の所持数が必要数に達している品を隠します。
+Hide gather window in duty	コンテンツ中は隠す
+Hide the gather window while you are bound by any duty.	コンテンツ参加中は採集ウィンドウを隠します。
+Only show gather window if holding key hotkey to hold	キーを押している間だけ採集ウィンドウを表示
+Only show gather window while holding a key	指定キーを押している間だけ表示する
+The gather window only shows while you hold the key below.	下で指定したキーを押している間だけ、採集ウィンドウを表示します。
+Key to hold	押し続けるキー
+Hold this key to keep the gather window visible. Click, then press it; Alt, Ctrl and Shift work on their own.	このキーを押している間、採集ウィンドウを表示します。欄をクリックしてからキーを押してください。Alt・Ctrl・Shift 単体も指定できます。
+Lock gather window position	採集小窓の位置を固定
+Stop the gather window from being dragged around.	採集ウィンドウをドラッグで移動できなくします。
+Hotkey to open gather window	採集小窓を開くキー
+Hotkey to open the gather window	採集ウィンドウを開くキー
+Opens or closes the gather window.	採集ウィンドウを開閉します。
+Modifier to delete items on right-click	右クリックで消すときのキー
+Hold this while right-clicking an item in the gather window to remove it.	このキーを押しながら採集ウィンドウの品を右クリックすると、その品を一覧から外します。
+Show spearfishing helper	刺突漁の補助表示を出す
+Show the spearfishing helper while spearfishing.	刺突漁中に刺突漁の補助表示を出します。
+Show fish name overlay	魚の名前を重ねて出す
+Show the names of identified fish in the spearfishing window.	刺突漁の画面に、判別できた魚の名前を表示します。
+Show speed of fish in overlay	魚の速さも出す
+Show the speed of fish in the spearfishing window, next to their names.	刺突漁の画面に、魚の名前と一緒に速さも表示します。
+Show list of available fish	獲れる魚の一覧を出す
+List the fish available at your current spearfishing spot beside the spearfishing window.	現在の刺突漁場にいる魚の一覧を、刺突漁の画面の横に表示します。
+Show speed and size as text	速さと大きさを文字で出す
+Show the speed and size of available fish as text instead of icons.	魚の速さと大きさを、アイコンではなく文字で表示します。
+Show center line	中央線を出す
+Show a straight line up from the center of the gig in the spearfishing window.	銛の中心から上方向へ、まっすぐな線を表示します。
+Show fish names in fixed position fish name position percentage	魚の名前の位置固定・高さの割合
+Show fish names in fixed position	魚の名前を決まった位置に出す
+Show the names of identified fish at a fixed height instead of on the moving fish.	移動する魚の上ではなく、決まった高さに魚の名前を表示します。
+Fish name position	魚の名前を表示する高さ
+How far up the spearfishing window the names sit.	刺突漁の画面で、魚の名前をどの高さに表示するか設定します。
+Colors used in tables, the gather window and chat messages.	表、採集ウィンドウ、チャット表示で使う色です。
+Names in chat commands in chat arguments in chat alarm message in chat palette	チャットの名前・コマンド・引数・アラームの色
+Accent color	アクセントカラー
+The whole color scheme is built from this one color. Pick a preset, or the last swatch for your own color.	この色をもとに画面全体の配色を作ります。見本から選ぶか、最後の色見本で好きな色を指定してください。
+Fish timer bite time scale	当たり時間の目盛りの長さ
+The fish timer's bite times are scaled to this. Bites longer than this don't show their progress bar and bite windows. Keep it as high as your longest bite window and otherwise as low as possible; about 40 seconds is usually enough.	釣りタイマーの時間幅です。これより長いアタリは、進行状況やアタリの時間帯を表示しません。最長のアタリ時間を収められる範囲で短くしてください。通常は40秒ほどで足ります。
+Chat colors	チャットの色
+Names in chat	チャット：名前の色
+Commands in chat	チャット：コマンドの色
+Arguments in chat	チャット：コマンドの引数の色
+Alarm message in chat	チャット：アラームの文の色
+Click the swatch to pick a colour, right-click it to clear.	色見本をクリックすると色を選べます。右クリックで指定を解除します。
+No color	色の指定なし
+Reset to default	初期値に戻す
+BROWSE	調べる
+PLAN	採集の計画
+SETTINGS	設定
+TOOLS	ツール

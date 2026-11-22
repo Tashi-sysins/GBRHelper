@@ -1,5 +1,5 @@
 GBRHelper - Third-Party Notices
-Release: 0.3.0.22
+Release: 0.3.0.23
 
 The following notices apply to the dependency DLLs distributed with GBRHelper.
 They supplement the separate GBRHelper LICENSE. The dependency versions below

@@ -4,6 +4,8 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Colors;
 using GBRHelper.Translation;
 using GBRHelper.Ui;
+using GBRHelper.Ipc;
+using GBRHelper.Navigation;
 
 namespace GBRHelper.Features;
 
@@ -38,6 +40,11 @@ public sealed class TranslationFeature(Configuration config) : IFeature, IDispos
     private GbrTextHooks? hooks;
     private string error = string.Empty;
     private bool failed;
+    private readonly GbrConfigAccess materialAccess = new();
+    private object? materialPlugin;
+    private MaterialTextAdapter? materialAdapter;
+    private DateTime nextMaterialAttempt;
+    private string materialError = string.Empty;
 
     public string Name => FeatureName;
 
@@ -89,6 +96,7 @@ public sealed class TranslationFeature(Configuration config) : IFeature, IDispos
     {
         if (!config.TranslationOn)
         {
+            this.DisconnectMaterial();
             if (this.hooks is not null)
             {
                 this.hooks.Dispose();
@@ -101,6 +109,43 @@ public sealed class TranslationFeature(Configuration config) : IFeature, IDispos
 
         if (this.hooks is null && !this.failed)
             this.Install();
+        if (this.hooks is not null) this.RefreshMaterial();
+    }
+
+    private void RefreshMaterial()
+    {
+        try
+        {
+            var plugin = this.materialAccess.Plugin();
+            if (ReferenceEquals(plugin, this.materialPlugin)) return;
+            this.DisconnectMaterial();
+            if (plugin is null || DateTime.UtcNow < this.nextMaterialAttempt) return;
+            this.nextMaterialAttempt = DateTime.UtcNow.AddSeconds(5);
+            var parent = plugin.GetType().Assembly.GetType("GatherBuddy.Gui.Interface")?.BaseType;
+            if (parent?.FullName == "RebornMaterial.M3ShellWindow")
+            {
+                var navigation = parent.Assembly.GetType("RebornMaterial.M3Navigation", true)!;
+                ManagedHookRuntime.Initialize(Svc.PluginInterface.AssemblyLocation.DirectoryName!);
+                this.materialAdapter = new MaterialTextAdapter(navigation, this.hooks!.IsInsideTargetWindow,
+                    this.table!.Translate, ManagedHookRuntime.CreateHook);
+                Svc.Log.Information("[GBRHelper] GBR の新しい画面の省略表示に対応しました");
+            }
+            this.materialPlugin = plugin;
+            this.materialError = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            var message = ex.GetBaseException().Message;
+            if (message != this.materialError) Svc.Log.Warning("[GBRHelper] GBR の省略表示補助を開始できません: " + message);
+            this.materialError = message;
+        }
+    }
+
+    private void DisconnectMaterial()
+    {
+        this.materialPlugin = null;
+        this.materialAdapter?.Dispose();
+        this.materialAdapter = null;
     }
 
     private void Install()
@@ -149,6 +194,7 @@ public sealed class TranslationFeature(Configuration config) : IFeature, IDispos
 
     public void Dispose()
     {
+        this.DisconnectMaterial();
         this.hooks?.Dispose();
         this.hooks = null;
     }

@@ -29,6 +29,9 @@ public static class GbrCompatibilityProfile
 {
     public const string Contract = "GBRH-navigation/1";
     public const string GbrHash = "FFBCDEBC635580749CE61A70155FF53893C8BB511679D7288A245170128444E1";
+    // 7.5.8.3: installed release inspected against source 3fa7874 and the navigation/vendor contracts.
+    public const string Gbr7583Hash = "5A2FD7FB98787545D70276B344DC4F08152484E1912B43FFAE99001859BEFF93";
+    public static bool IsSupportedGbrHash(string hash) => hash is GbrHash or Gbr7583Hash;
     public const string NavHash = "889EBFF40D92DB2DF4B4C190F1D81B3971E538908E459F6297F53FEA017E3723";
     public const string Nav12315Hash = "4D94923DAEB56EA7A842108A581408B0F201F4AB35966065D974A9367D7EA288";
     // Each entry is an inspected release binary, not a version-number wildcard.
@@ -94,8 +97,10 @@ public static class GbrCompatibilityProfile
         PluginValidationReport report)
     {
         var navigation = expectedHash is NavHash or Nav12315Hash;
+        var gathering = expectedHash is GbrHash or Gbr7583Hash;
         report.Validated = false; report.CheckedMethods = report.CheckedContracts = 0; report.DiskMvid = null; report.ActualHash = null;
-        report.DllPath = dllPath; report.ExpectedHash = navigation ? NavHash + " / " + Nav12315Hash : expectedHash;
+        report.DllPath = dllPath; report.ExpectedHash = navigation ? NavHash + " / " + Nav12315Hash
+            : gathering ? GbrHash + " / " + Gbr7583Hash : expectedHash;
         report.AssemblyName = assembly.FullName; report.AssemblyLocation = assembly.Location;
         report.LoadedMvid = assembly.ManifestModule.ModuleVersionId;
         report.Stage = "パス取得";
@@ -106,7 +111,8 @@ public static class GbrCompatibilityProfile
         var snapshot = File.ReadAllBytes(dllPath);
         report.Stage = "ハッシュ";
         report.ActualHash = Convert.ToHexString(SHA256.HashData(snapshot));
-        if (navigation ? !IsSupportedNavigationHash(report.ActualHash) : report.ActualHash != expectedHash)
+        if (navigation ? !IsSupportedNavigationHash(report.ActualHash)
+            : gathering ? !IsSupportedGbrHash(report.ActualHash) : report.ActualHash != expectedHash)
             throw new NotSupportedException($"{report.InternalName}は未検証のDLLです。対応版を確認してください");
         using var stream = new MemoryStream(snapshot, writable: false);
         using var file = Mono.Cecil.AssemblyDefinition.ReadAssembly(stream);
@@ -119,7 +125,8 @@ public static class GbrCompatibilityProfile
         using var pe = new System.Reflection.PortableExecutable.PEReader(new MemoryStream(snapshot, writable: false));
         var selected = navigation
             ? file.MainModule.Types.Where(t => NavigationTypes.Contains(t.FullName)).SelectMany(Descendants)
-            : file.MainModule.Types.Where(t => t.FullName == "GatherBuddy.AutoGather.AutoGather" || t.Name == "AdvancedUnstuck");
+            : file.MainModule.Types.Where(t => t.FullName is "GatherBuddy.AutoGather.AutoGather"
+                or "GatherBuddy.Vulcan.Vendors.VendorNavigator" || t.Name == "AdvancedUnstuck");
         foreach (var token in selected.SelectMany(t => t.Methods).Where(m => m.HasBody))
         {
             var live = assembly.ManifestModule.ResolveMethod(token.MetadataToken.ToInt32());

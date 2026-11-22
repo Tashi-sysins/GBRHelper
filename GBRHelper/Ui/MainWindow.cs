@@ -72,6 +72,7 @@ public sealed class MainWindow : Window, IDisposable
 
     /// <summary>「GBR の画面を開く」で開けなかった理由（開けたら null）。</summary>
     private string? gbrOpenError;
+    private readonly GbrConfigAccess gbrWindowAccess = new();
 
     /// <summary>左の一覧の「必要なプラグイン」の背景の青（霊砂・クリスタルの見出しの青と同じ）。</summary>
     private static readonly Vector4 RequiredPluginsBlue = new(0.16f, 0.48f, 0.80f, 1f);
@@ -155,11 +156,20 @@ public sealed class MainWindow : Window, IDisposable
         {
             if (ImGui.Button("GBR の画面を開く##openGbr", new Vector2(-1, 0)))
             {
-                this.gbrOpenError = GbrWindowExtras.IsGbrWindowOpen()
-                    ? null
-                    : RequiredPlugins.OpenMainUi(Svc.PluginInterface.InstalledPlugins, "GatherBuddyReborn", "GatherBuddy Reborn");
-                if (this.gbrOpenError is null)
-                    this.gbrExtras()?.RequestAutoGatherTab();
+                try
+                {
+                    var plugin = this.gbrWindowAccess.Plugin()
+                        ?? throw new InvalidOperationException(this.gbrWindowAccess.LastError);
+                    this.gbrOpenError = null;
+                    if (!GbrWindowAccess.TryOpenAutoGather(plugin))
+                    {
+                        this.gbrOpenError = GbrWindowExtras.IsGbrWindowOpen()
+                            ? null
+                            : RequiredPlugins.OpenMainUi(Svc.PluginInterface.InstalledPlugins, "GatherBuddyReborn", "GatherBuddy Reborn");
+                        if (this.gbrOpenError is null) this.gbrExtras()?.RequestAutoGatherTab();
+                    }
+                }
+                catch (Exception ex) { this.gbrOpenError = "GBR の画面を開けません：" + ex.GetBaseException().Message; }
             }
         }
 
